@@ -3,7 +3,7 @@
 # dependencies
 node_modules/
 Backend/
-
+.env
 # Expo
 .expo/
 dist/

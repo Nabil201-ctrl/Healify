@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { useAuth, useUser } from '@clerk/clerk-expo';
 import { useRouter, useSegments } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
@@ -16,6 +16,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const { getToken, isLoaded, isSignedIn } = useAuth();
     const { user } = useUser();
+
     const [userId, setUserId] = useState<string | null>(null);
     const [token, setToken] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -29,32 +30,36 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             if (!isLoaded) return;
             setIsLoading(true);
 
-            if (isSignedIn && user) {
-                const fetchedToken = await getToken({ template: 'default' });
-                setToken(fetchedToken || null);
-                setUserId(user.id);
+            try {
+                if (isSignedIn && user) {
+                    const fetchedToken = await getToken({ template: 'default' });
+                    setToken(fetchedToken || null);
+                    setUserId(user.id);
 
-                const onboardingStatus =
-                    user.publicMetadata?.hasCompletedOnboarding ||
-                    user.privateMetadata?.hasCompletedOnboarding ||
-                    false;
+                    // ✅ Read onboarding status from unsafeMetadata (client-side updatable)
+                    const onboardingStatus =
+                        user.unsafeMetadata?.hasCompletedOnboarding ?? false;
 
-                setHasCompletedOnboarding(!!onboardingStatus);
+                    setHasCompletedOnboarding(!!onboardingStatus);
 
-                if (fetchedToken) {
-                    await SecureStore.setItemAsync('token', fetchedToken);
+                    if (fetchedToken) {
+                        await SecureStore.setItemAsync('token', fetchedToken);
+                    }
+
+                    // ✅ Handle navigation logic
+                    if (!onboardingStatus && !segments.includes('(onboarding)')) {
+                        router.replace('/(onboarding)/onboarding');
+                    } else if (onboardingStatus && segments.includes('(auth)')) {
+                        router.replace('/');
+                    }
+                } else {
+                    router.replace('/(auth)/sign-in');
                 }
-
-                if (!onboardingStatus && !segments.includes('(onboarding)')) {
-                    router.replace('/(onboarding)/onboarding');
-                } else if (onboardingStatus && segments.includes('(auth)')) {
-                    router.replace('/');
-                }
-            } else {
-                router.replace('/(auth)/sign-in');
+            } catch (err) {
+                console.error('Auth initialization error:', err);
+            } finally {
+                setIsLoading(false);
             }
-
-            setIsLoading(false);
         };
 
         initAuth();
@@ -68,8 +73,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 isLoading,
                 isSignedIn: !!isSignedIn,
                 hasCompletedOnboarding,
-            }}
-        >
+            }}>
             {children}
         </AuthContext.Provider>
     );
