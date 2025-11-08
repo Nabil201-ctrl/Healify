@@ -1,15 +1,17 @@
 import React, { useState } from 'react';
-import { Text, TextInput, TouchableOpacity, View, ActivityIndicator, Alert } from 'react-native';
+import { Text, TextInput, TouchableOpacity, View, ActivityIndicator, Platform } from 'react-native';
 import { useSignIn, useOAuth } from '@clerk/clerk-expo';
 import { Link, useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
+import * as AppleAuthentication from 'expo-apple-authentication';
 import tw from 'twrnc';
 
 WebBrowser.maybeCompleteAuthSession();
 
 export default function SignInScreen() {
     const { signIn, setActive, isLoaded } = useSignIn();
-    const { startOAuthFlow } = useOAuth({ strategy: 'oauth_google' });
+    const { startOAuthFlow: startGoogleOAuth } = useOAuth({ strategy: 'oauth_google' });
+    const { startOAuthFlow: startAppleOAuth } = useOAuth({ strategy: 'oauth_apple' });
     const router = useRouter();
 
     const [emailAddress, setEmailAddress] = useState('');
@@ -42,23 +44,89 @@ export default function SignInScreen() {
     };
 
     const onGoogleSignIn = async () => {
-        if (!isLoaded) return;
+        if (!isLoaded) {
+            setError('Authentication service is not ready. Please try again.');
+            return;
+        }
+        
         setLoading(true);
         setError('');
 
         try {
-            const { createdSessionId, setActive, signIn, signUp } = await startOAuthFlow();
+            const { createdSessionId, setActive, signIn, signUp } = await startGoogleOAuth();
 
             if (createdSessionId) {
                 await setActive!({ session: createdSessionId });
-                router.replace('/');
+                // Small delay to ensure session is properly set
+                setTimeout(() => {
+                    router.replace('/');
+                }, 100);
             } else {
-                // Use signIn or signUp for next steps such as MFA
-                setError('OAuth flow completed but no session created');
+                // Handle MFA or other additional steps
+                if (signIn || signUp) {
+                    setError('Please complete additional verification steps.');
+                } else {
+                    setError('OAuth flow completed but no session created. Please try again.');
+                }
             }
         } catch (err: any) {
-            setError(err.errors?.[0]?.message || 'Google sign-in failed.');
-            console.error('OAuth error', err);
+            // Handle user cancellation gracefully
+            if (err?.errors?.[0]?.code === 'user_cancelled' || err?.message?.includes('cancel')) {
+                setError('');
+                // Don't show error for user cancellation
+                return;
+            }
+            
+            const errorMessage = err?.errors?.[0]?.message || err?.message || 'Google sign-in failed. Please check your connection and try again.';
+            setError(errorMessage);
+            console.error('Google OAuth error:', err);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const onAppleSignIn = async () => {
+        if (!isLoaded) {
+            setError('Authentication service is not ready. Please try again.');
+            return;
+        }
+        
+        if (Platform.OS !== 'ios') {
+            setError('Apple Sign In is only available on iOS');
+            return;
+        }
+
+        setLoading(true);
+        setError('');
+
+        try {
+            const { createdSessionId, setActive, signIn, signUp } = await startAppleOAuth();
+
+            if (createdSessionId) {
+                await setActive!({ session: createdSessionId });
+                // Small delay to ensure session is properly set
+                setTimeout(() => {
+                    router.replace('/');
+                }, 100);
+            } else {
+                // Handle MFA or other additional steps
+                if (signIn || signUp) {
+                    setError('Please complete additional verification steps.');
+                } else {
+                    setError('OAuth flow completed but no session created. Please try again.');
+                }
+            }
+        } catch (err: any) {
+            // Handle user cancellation gracefully
+            if (err?.errors?.[0]?.code === 'user_cancelled' || err?.message?.includes('cancel')) {
+                setError('');
+                // Don't show error for user cancellation
+                return;
+            }
+            
+            const errorMessage = err?.errors?.[0]?.message || err?.message || 'Apple sign-in failed. Please check your connection and try again.';
+            setError(errorMessage);
+            console.error('Apple OAuth error:', err);
         } finally {
             setLoading(false);
         }
@@ -75,10 +143,21 @@ export default function SignInScreen() {
             <TouchableOpacity
                 onPress={onGoogleSignIn}
                 disabled={loading}
-                style={tw`flex-row items-center justify-center bg-white border border-gray-300 py-4 rounded-xl mb-6`}
+                style={tw`flex-row items-center justify-center bg-white border border-gray-300 py-4 rounded-xl mb-4`}
             >
                 <Text style={tw`text-gray-700 text-lg font-semibold`}>Continue with Google</Text>
             </TouchableOpacity>
+
+            {/* Apple Sign In Button (iOS only) */}
+            {Platform.OS === 'ios' && (
+                <AppleAuthentication.AppleAuthenticationButton
+                    buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
+                    buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
+                    cornerRadius={12}
+                    style={tw`w-full h-14 mb-4`}
+                    onPress={onAppleSignIn}
+                />
+            )}
 
             <View style={tw`flex-row items-center mb-6`}>
                 <View style={tw`flex-1 h-px bg-gray-300`} />

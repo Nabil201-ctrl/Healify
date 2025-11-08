@@ -46,10 +46,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                         await SecureStore.setItemAsync('token', fetchedToken);
                     }
 
-                    // ✅ Handle navigation logic
-                    if (!onboardingStatus && !segments.includes('(onboarding)')) {
+                    // Handle navigation logic
+                    const currentSegments = segments;
+                    if (!onboardingStatus && !currentSegments.includes('(onboarding)')) {
                         router.replace('/(onboarding)/onboarding');
-                    } else if (onboardingStatus && segments.includes('(auth)')) {
+                    } else if (onboardingStatus && currentSegments.includes('(auth)')) {
                         router.replace('/');
                     }
                 } else {
@@ -63,7 +64,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         };
 
         initAuth();
-    }, [isLoaded, isSignedIn]);
+    }, [isLoaded, isSignedIn, user?.id, getToken, router, segments]);
 
     return (
         <AuthContext.Provider

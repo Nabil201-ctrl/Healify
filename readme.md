@@ -1,0 +1,1 @@
+Create a detailed readme.md file, system archetecure readme
