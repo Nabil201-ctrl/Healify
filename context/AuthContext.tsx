@@ -36,25 +36,50 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                     setToken(fetchedToken || null);
                     setUserId(user.id);
 
-                    // ✅ Read onboarding status from unsafeMetadata (client-side updatable)
-                    const onboardingStatus =
-                        user.unsafeMetadata?.hasCompletedOnboarding ?? false;
+                    // Read onboarding status from metadata
+                    // Check unsafeMetadata first (frontend-updatable), then publicMetadata (backend-only)
+                    // Note: publicMetadata is typically backend-only, but we check it as fallback
+                    const onboardingStatusUnsafe = user.unsafeMetadata?.hasCompletedOnboarding;
+                    const onboardingStatusPublic = user.publicMetadata?.hasCompletedOnboarding;
+                    
+                    // Use unsafeMetadata if available, otherwise fallback to publicMetadata
+                    // If both are undefined/null/false, default to false (not completed)
+                    const hasCompletedOnboarding = 
+                        onboardingStatusUnsafe !== undefined && onboardingStatusUnsafe !== null
+                            ? !!onboardingStatusUnsafe 
+                            : (onboardingStatusPublic !== undefined && onboardingStatusPublic !== null 
+                                ? !!onboardingStatusPublic 
+                                : false);
 
-                    setHasCompletedOnboarding(!!onboardingStatus);
+                    setHasCompletedOnboarding(hasCompletedOnboarding);
 
                     if (fetchedToken) {
                         await SecureStore.setItemAsync('token', fetchedToken);
                     }
 
-                    // Handle navigation logic
+                    // Handle navigation logic based on onboarding status
                     const currentSegments = segments;
-                    if (!onboardingStatus && !currentSegments.includes('(onboarding)')) {
-                        router.replace('/(onboarding)/onboarding');
-                    } else if (onboardingStatus && currentSegments.includes('(auth)')) {
-                        router.replace('/');
+                    
+                    // If onboarding is not completed (false or undefined), redirect to onboarding
+                    if (!hasCompletedOnboarding) {
+                        // Only redirect if not already on onboarding screen
+                        if (!currentSegments.includes('(onboarding)')) {
+                            router.replace('/(onboarding)/onboarding');
+                        }
+                    } 
+                    // If onboarding is completed, ensure user is not on auth or onboarding screens
+                    else {
+                        if (currentSegments.includes('(auth)')) {
+                            router.replace('/(home)');
+                        } else if (currentSegments.includes('(onboarding)')) {
+                            router.replace('/(home)');
+                        }
                     }
                 } else {
-                    router.replace('/(auth)/sign-in');
+                    // User is not signed in - redirect to sign in (unless already there)
+                    if (!segments.includes('(auth)')) {
+                        router.replace('/(auth)/sign-in');
+                    }
                 }
             } catch (err) {
                 console.error('Auth initialization error:', err);
@@ -64,7 +89,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         };
 
         initAuth();
-    }, [isLoaded, isSignedIn, user?.id, getToken, router, segments]);
+    }, [isLoaded, isSignedIn, user?.id, user?.unsafeMetadata?.hasCompletedOnboarding, user?.publicMetadata?.hasCompletedOnboarding, getToken, router, segments]);
 
     return (
         <AuthContext.Provider

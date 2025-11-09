@@ -39,5 +39,31 @@ yarn-error.*
 *.tsbuildinfo
 
 # generated native folders
-/ios
-/android
+# /ios and /android are committed because we have custom native code
+# (OAuth deep linking configuration in AndroidManifest.xml)
+# Uncomment these lines if using pure Expo managed workflow with EAS Build
+# /ios
+# /android
+
+# Android build artifacts (keep these ignored)
+android/app/build/
+android/.gradle/
+android/local.properties
+android/app/release/
+android/app/debug/
+android/app/debugOptimized/
+*.apk
+*.aab
+*.ap_
+*.dex
+*.class
+bin/
+gen/
+out/
+
+# iOS build artifacts (if you add iOS later)
+ios/build/
+ios/Pods/
+ios/*.xcworkspace
+ios/*.xcuserdata
+DerivedData/

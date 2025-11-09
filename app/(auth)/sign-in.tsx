@@ -32,7 +32,8 @@ export default function SignInScreen() {
 
             if (signInAttempt.status === 'complete') {
                 await setActive({ session: signInAttempt.createdSessionId });
-                router.replace('/');
+                // Don't navigate manually - let AuthContext handle navigation based on onboarding status
+                // The AuthContext will check onboarding metadata and redirect accordingly
             } else {
                 setError('Please complete the additional steps.');
             }
@@ -57,10 +58,8 @@ export default function SignInScreen() {
 
             if (createdSessionId) {
                 await setActive!({ session: createdSessionId });
-                // Small delay to ensure session is properly set
-                setTimeout(() => {
-                    router.replace('/');
-                }, 100);
+                // Don't navigate manually - let AuthContext handle navigation based on onboarding status
+                // The AuthContext will check onboarding metadata and redirect to onboarding if needed
             } else {
                 // Handle MFA or other additional steps
                 if (signIn || signUp) {
@@ -104,10 +103,8 @@ export default function SignInScreen() {
 
             if (createdSessionId) {
                 await setActive!({ session: createdSessionId });
-                // Small delay to ensure session is properly set
-                setTimeout(() => {
-                    router.replace('/');
-                }, 100);
+                // Don't navigate manually - let AuthContext handle navigation based on onboarding status
+                // The AuthContext will check onboarding metadata and redirect to onboarding if needed
             } else {
                 // Handle MFA or other additional steps
                 if (signIn || signUp) {

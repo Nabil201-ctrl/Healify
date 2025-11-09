@@ -51,10 +51,8 @@ export default function SignUpScreen() {
 
             if (createdSessionId) {
                 await setActive!({ session: createdSessionId });
-                // Small delay to ensure session is properly set
-                setTimeout(() => {
-                    router.replace('/');
-                }, 100);
+                // Don't navigate manually - let AuthContext handle navigation based on onboarding status
+                // New users will be redirected to onboarding since hasCompletedOnboarding will be false
             } else {
                 // Handle MFA or other additional steps
                 if (signIn || signUp) {
@@ -98,10 +96,8 @@ export default function SignUpScreen() {
 
             if (createdSessionId) {
                 await setActive!({ session: createdSessionId });
-                // Small delay to ensure session is properly set
-                setTimeout(() => {
-                    router.replace('/');
-                }, 100);
+                // Don't navigate manually - let AuthContext handle navigation based on onboarding status
+                // New users will be redirected to onboarding since hasCompletedOnboarding will be false
             } else {
                 // Handle MFA or other additional steps
                 if (signIn || signUp) {
@@ -135,7 +131,8 @@ export default function SignUpScreen() {
             const attempt = await signUp.attemptEmailAddressVerification({ code });
             if (attempt.status === 'complete') {
                 await setActive({ session: attempt.createdSessionId });
-                router.replace('/');
+                // Don't navigate manually - let AuthContext handle navigation based on onboarding status
+                // New users will be redirected to onboarding since hasCompletedOnboarding will be false
             }
         } catch (err: any) {
             setError(err.errors?.[0]?.message || 'Invalid verification code.');

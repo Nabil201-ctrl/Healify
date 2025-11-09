@@ -75,10 +75,16 @@ export default function OnboardingScreen() {
 
     const completeOnboarding = async () => {
         try {
+            // Update unsafeMetadata to mark onboarding as completed
             await user?.update({
                 unsafeMetadata: { hasCompletedOnboarding: true },
             });
-            router.replace('/');
+            // Don't navigate manually - let AuthContext handle navigation
+            // AuthContext will detect the metadata change and redirect to home
+            // Force a small delay to ensure metadata is saved
+            setTimeout(() => {
+                router.replace('/(home)');
+            }, 300);
         } catch (err) {
             console.error('Error completing onboarding:', err);
         }
