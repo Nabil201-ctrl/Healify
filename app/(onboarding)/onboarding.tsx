@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useCallback } from 'react';
 import {
     View,
     Text,
@@ -75,24 +75,46 @@ export default function OnboardingScreen() {
 
     const completeOnboarding = async () => {
         try {
+            console.log('🎯 Starting onboarding completion...');
+            console.log('  - User ID:', user?.id);
+            console.log('  - Current onboarding status (before update):', user?.unsafeMetadata?.hasCompletedOnboarding);
+            
             // Update unsafeMetadata to mark onboarding as completed
             await user?.update({
                 unsafeMetadata: { hasCompletedOnboarding: true },
             });
-            // Don't navigate manually - let AuthContext handle navigation
-            // AuthContext will detect the metadata change and redirect to home
-            // Force a small delay to ensure metadata is saved
-            setTimeout(() => {
-                router.replace('/(home)');
-            }, 300);
+            console.log('✅ Onboarding metadata updated successfully');
+            
+            // Reload user data to ensure metadata is synced
+            await user?.reload();
+            console.log('✅ User data reloaded');
+            console.log('  - Updated onboarding status:', user?.unsafeMetadata?.hasCompletedOnboarding);
+            
+            // Navigate to home - the onboarding layout will also redirect if needed
+            // This ensures immediate navigation after successful completion
+            console.log('🔄 Navigating to home...');
+            router.replace('/(home)');
         } catch (err) {
-            console.error('Error completing onboarding:', err);
+            console.error('❌ Error completing onboarding:', err);
         }
     };
 
     const handleNext = () => {
         if (currentIndex < slides.length - 1) {
-            flatListRef.current?.scrollToIndex({ index: currentIndex + 1 });
+            const nextIndex = currentIndex + 1;
+            console.log(`🔄 Scrolling from index ${currentIndex} to ${nextIndex}`);
+            // Scroll to the next slide using scrollToOffset (more reliable than scrollToIndex)
+            if (flatListRef.current) {
+                flatListRef.current.scrollToOffset({
+                    offset: nextIndex * width,
+                    animated: true,
+                });
+                // Also update index immediately for UI responsiveness
+                // The scroll events will sync it properly
+                setCurrentIndex(nextIndex);
+            } else {
+                console.warn('⚠️ FlatList ref is null');
+            }
         } else {
             completeOnboarding();
         }
@@ -120,8 +142,26 @@ export default function OnboardingScreen() {
     );
 
     const updateIndex = (e: any) => {
-        const index = Math.round(e.nativeEvent.contentOffset.x / width);
-        setCurrentIndex(index);
+        if (e && e.nativeEvent && e.nativeEvent.contentOffset) {
+            const index = Math.round(e.nativeEvent.contentOffset.x / width);
+            if (index >= 0 && index < slides.length) {
+                setCurrentIndex(index);
+            }
+        }
+    };
+
+    // Handle viewable items change for more reliable index tracking
+    const onViewableItemsChanged = useCallback(({ viewableItems }: any) => {
+        if (viewableItems && viewableItems.length > 0 && viewableItems[0].index !== null) {
+            const index = viewableItems[0].index;
+            if (index >= 0 && index < slides.length) {
+                setCurrentIndex(index);
+            }
+        }
+    }, []);
+
+    const viewabilityConfig = {
+        itemVisiblePercentThreshold: 50,
     };
 
     const Dots = () => (
@@ -164,6 +204,14 @@ export default function OnboardingScreen() {
                     { useNativeDriver: false }
                 )}
                 onMomentumScrollEnd={updateIndex}
+                onViewableItemsChanged={onViewableItemsChanged}
+                viewabilityConfig={viewabilityConfig}
+                scrollEventThrottle={16}
+                getItemLayout={(data, index) => ({
+                    length: width,
+                    offset: width * index,
+                    index,
+                })}
             />
 
             <Dots />
