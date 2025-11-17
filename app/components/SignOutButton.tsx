@@ -1,30 +1,39 @@
-import { useClerk } from '@clerk/clerk-expo';
-import * as Linking from 'expo-linking';
-import { Text, TouchableOpacity } from 'react-native';
+// components/SignOutButton.tsx
+import React from 'react';
+import { TouchableOpacity, Text, Alert } from 'react-native';
+import { useAuth } from '@clerk/clerk-expo';
 import tw from 'twrnc';
 
-export const SignOutButton = () => {
-    const { signOut } = useClerk();
+export function SignOutButton() {
+    const { signOut } = useAuth();
 
-    const handleSignOut = async () => {
-        try {
-            await signOut();
-            // Redirect to home
-            Linking.openURL(Linking.createURL('/'));
-        } catch (err) {
-            console.error(JSON.stringify(err, null, 2));
-        }
+    const handleSignOut = () => {
+        Alert.alert(
+            'Sign Out',
+            'Are you sure you want to sign out?',
+            [
+                {
+                    text: 'Cancel',
+                    style: 'cancel',
+                },
+                {
+                    text: 'Sign Out',
+                    style: 'destructive',
+                    onPress: () => signOut(),
+                },
+            ]
+        );
     };
 
     return (
         <TouchableOpacity
+            style={tw`border-2 border-gray-300 py-3 rounded-2xl`}
             onPress={handleSignOut}
-            style={tw`mt-4 px-6 py-3 bg-red-500 rounded-xl`}
-            activeOpacity={0.8}
+            activeOpacity={0.7}
         >
-            <Text style={tw`text-white text-center text-base font-semibold`}>
-                Sign Out
+            <Text style={tw`text-gray-600 text-center text-base font-medium`}>
+                🚪 Sign Out
             </Text>
         </TouchableOpacity>
     );
-};
+}
