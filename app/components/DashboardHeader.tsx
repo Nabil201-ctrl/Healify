@@ -1,4 +1,3 @@
-// components/DashboardHeader.tsx
 import React from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -7,12 +6,15 @@ import tw from 'twrnc';
 interface DashboardHeaderProps {
     userName: string;
     lastSyncTime: string;
+    isDark?: boolean;
 }
 
-export function DashboardHeader({ userName, lastSyncTime }: DashboardHeaderProps) {
+export function DashboardHeader({ userName, lastSyncTime, isDark = false }: DashboardHeaderProps) {
+    const gradientColors = isDark ? ['#4f46e5', '#7c3aed'] : ['#6366f1', '#8b5cf6'];
+
     return (
         <LinearGradient
-            colors={['#6366f1', '#8b5cf6']}
+            colors={gradientColors}
             style={tw`rounded-3xl p-6 mb-6 shadow-lg`}
         >
             <View style={tw`flex-row justify-between items-start`}>
@@ -24,7 +26,7 @@ export function DashboardHeader({ userName, lastSyncTime }: DashboardHeaderProps
                         {userName}!
                     </Text>
                     <View style={tw`flex-row items-center`}>
-                        <View style={tw`w-2 h-2 bg-green-400 rounded-full mr-2`} />
+                        <View style={tw`w-2 h-2 ${isDark ? 'bg-green-500' : 'bg-green-400'} rounded-full mr-2`} />
                         <Text style={tw`text-white text-opacity-90 text-sm`}>
                             Synced {lastSyncTime}
                         </Text>

@@ -1,4 +1,3 @@
-// components/HealthMetricCard.tsx
 import React from 'react';
 import { View, Text } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -12,6 +11,7 @@ interface HealthMetricCardProps {
     gradientColors: string[];
     trend: 'up' | 'down' | 'stable';
     trendValue: string;
+    isDark?: boolean;
 }
 
 export default function HealthMetricCard({ 
@@ -21,7 +21,8 @@ export default function HealthMetricCard({
     icon, 
     gradientColors, 
     trend, 
-    trendValue 
+    trendValue,
+    isDark = false 
 }: HealthMetricCardProps) {
     const getTrendIcon = () => {
         switch (trend) {
@@ -34,10 +35,10 @@ export default function HealthMetricCard({
 
     const getTrendColor = () => {
         switch (trend) {
-            case 'up': return 'text-green-600';
-            case 'down': return 'text-red-600';
-            case 'stable': return 'text-gray-600';
-            default: return 'text-gray-600';
+            case 'up': return isDark ? 'text-green-400' : 'text-green-600';
+            case 'down': return isDark ? 'text-red-400' : 'text-red-600';
+            case 'stable': return isDark ? 'text-gray-400' : 'text-gray-600';
+            default: return isDark ? 'text-gray-400' : 'text-gray-600';
         }
     };
 

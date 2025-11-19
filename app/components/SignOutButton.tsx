@@ -1,10 +1,13 @@
-// components/SignOutButton.tsx
 import React from 'react';
 import { TouchableOpacity, Text, Alert } from 'react-native';
 import { useAuth } from '@clerk/clerk-expo';
 import tw from 'twrnc';
 
-export function SignOutButton() {
+interface SignOutButtonProps {
+    isDark?: boolean;
+}
+
+export function SignOutButton({ isDark = false }: SignOutButtonProps) {
     const { signOut } = useAuth();
 
     const handleSignOut = () => {
@@ -27,11 +30,11 @@ export function SignOutButton() {
 
     return (
         <TouchableOpacity
-            style={tw`border-2 border-gray-300 py-3 rounded-2xl`}
+            style={tw`border-2 ${isDark ? 'border-gray-600' : 'border-gray-300'} py-3 rounded-2xl`}
             onPress={handleSignOut}
             activeOpacity={0.7}
         >
-            <Text style={tw`text-gray-600 text-center text-base font-medium`}>
+            <Text style={tw`${isDark ? 'text-gray-300' : 'text-gray-600'} text-center text-base font-medium`}>
                 🚪 Sign Out
             </Text>
         </TouchableOpacity>
