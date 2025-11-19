@@ -5,7 +5,7 @@ import { StackedBarChart } from 'react-native-chart-kit';
 import { Dimensions } from 'react-native';
 import tw from 'twrnc';
 
-export function SleepChart() {
+export default function SleepChart() {
     const screenWidth = Dimensions.get('window').width - 40;
 
     const sleepData = {

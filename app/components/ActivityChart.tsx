@@ -5,7 +5,7 @@ import { BarChart } from 'react-native-chart-kit';
 import { Dimensions } from 'react-native';
 import tw from 'twrnc';
 
-export function ActivityChart() {
+export default function ActivityChart() {
     const screenWidth = Dimensions.get('window').width - 40;
 
     const activityData = {

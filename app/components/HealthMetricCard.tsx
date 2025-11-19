@@ -14,7 +14,7 @@ interface HealthMetricCardProps {
     trendValue: string;
 }
 
-export function HealthMetricCard({ 
+export default function HealthMetricCard({ 
     title, 
     value, 
     unit, 
