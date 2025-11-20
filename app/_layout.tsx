@@ -1,127 +1,84 @@
 // app/_layout.tsx
-import React from 'react';
-import { View, Text, ActivityIndicator } from 'react-native';
-import { Stack, useRouter } from 'expo-router';
-import { ClerkProvider, useAuth, useUser } from '@clerk/clerk-expo';
-import * as SecureStore from 'expo-secure-store';
+import React, { useEffect, useState } from 'react';
+import { View, ActivityIndicator, Text } from 'react-native';
+import { Stack, useRouter, useSegments } from 'expo-router';
 import { AuthProvider, useAuthContext } from '../context/AuthContext';
+import { OnboardingService } from '../services/OnboardingService';
 import tw from 'twrnc';
 
-const tokenCache = {
-  getToken: () => SecureStore.getItemAsync('clerk_token'),
-  saveToken: (token: string) => SecureStore.setItemAsync('clerk_token', token),
-};
-
+// --- Main Navigation Logic ---
 function RootLayoutNav() {
-  const { isLoading, isSignedIn, hasCompletedOnboarding, refreshAuth } = useAuthContext();
+  const { isLoading: isAuthLoading, isSignedIn } = useAuthContext();
+  const [isOnboardingLoading, setOnboardingLoading] = useState(true);
+  const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(false);
+  
+  const segments = useSegments();
   const router = useRouter();
-  const { isLoaded } = useAuth();
-  const { user } = useUser(); // Add direct user hook
-  const [hasRedirected, setHasRedirected] = React.useState(false);
 
-  React.useEffect(() => {
-    console.log('🔄 Root Layout: Auth state changed', {
-      isLoading,
-      isSignedIn,
-      hasCompletedOnboarding,
-      hasUser: !!user,
-      hasRedirected,
-      isLoaded
-    });
+  useEffect(() => {
+    // Check onboarding status first
+    const checkOnboarding = async () => {
+      const completed = await OnboardingService.hasCompletedOnboarding();
+      setHasCompletedOnboarding(completed);
+      setOnboardingLoading(false);
+    };
+    checkOnboarding();
+  }, []);
 
-    // Don't do anything if still loading
-    if (isLoading || !isLoaded) {
-      return;
+  useEffect(() => {
+    const isLoading = isAuthLoading || isOnboardingLoading;
+    if (isLoading) {
+      return; // Wait until both auth and onboarding status are loaded
     }
 
-    // Prevent multiple redirects
-    if (hasRedirected) {
-      return;
+    const inAuthGroup = segments[0] === '(auth)';
+    const inOnboardingGroup = segments[0] === '(onboarding)';
+
+    // New Flow: Onboarding -> Auth -> App
+    if (!hasCompletedOnboarding) {
+      // If onboarding isn't complete, force user to the onboarding screen
+      if (!inOnboardingGroup) {
+        router.replace('/(onboarding)/onboarding');
+      }
+    } else {
+      // Onboarding is complete, now check auth status
+      if (isSignedIn) {
+        // User is signed in, send them to the main app
+        router.replace('/(home)');
+      } else {
+        // User is not signed in, send them to the auth flow
+        if (!inAuthGroup) {
+          router.replace('/(auth)/sign-in');
+        }
+      }
     }
+  }, [isAuthLoading, isOnboardingLoading, hasCompletedOnboarding, isSignedIn, segments, router]);
 
-    // CASE 1: User is properly signed in (ideal case)
-    if (isSignedIn && user) {
-      console.log('✅ CASE 1: User is properly signed in');
-      const targetRoute = hasCompletedOnboarding ? '/(home)' : '/(onboarding)/onboarding';
-      console.log('➡️ Redirecting to:', targetRoute);
-      
-      setHasRedirected(true);
-      setTimeout(() => {
-        router.replace(targetRoute);
-      }, 100);
-      return;
-    }
-
-    // CASE 2: We have a user object but isSignedIn is false (your current issue)
-    if (user && !isSignedIn) {
-      console.log('🚨 CASE 2: User data exists but isSignedIn is false - forcing redirect');
-      const hasOnboarding = !!user.unsafeMetadata?.hasCompletedOnboarding;
-      const targetRoute = hasOnboarding ? '/(home)' : '/(onboarding)/onboarding';
-      console.log('➡️ Redirecting to:', targetRoute);
-      
-      setHasRedirected(true);
-      setTimeout(() => {
-        router.replace(targetRoute);
-      }, 100);
-      return;
-    }
-
-    // CASE 3: No user and not signed in - stay on auth pages
-    if (!isSignedIn && !user) {
-      console.log('➡️ CASE 3: User not signed in, staying on auth pages');
-      // No redirect needed
-      return;
-    }
-
-    // CASE 4: Signed in but no user data yet - wait and retry
-    if (isSignedIn && !user) {
-      console.log('🔄 CASE 4: Signed in but no user data yet, waiting...');
-      setTimeout(() => {
-        refreshAuth();
-      }, 500);
-      return;
-    }
-
-  }, [isLoading, isSignedIn, hasCompletedOnboarding, user, router, isLoaded, hasRedirected, refreshAuth]);
-
-  // Reset redirect flag when key auth states change
-  React.useEffect(() => {
-    console.log('🔄 Resetting redirect flag due to auth state change');
-    setHasRedirected(false);
-  }, [isSignedIn, user]); // Reset when signed in status OR user object changes
-
-  if (isLoading || !isLoaded) {
+  // Show a loading screen while we determine the initial route
+  if (isAuthLoading || isOnboardingLoading) {
     return (
       <View style={tw`flex-1 justify-center items-center bg-white`}>
         <ActivityIndicator size="large" color="#16a34a" />
-        <Text style={tw`mt-4 text-gray-600`}>Loading Healthify...</Text>
       </View>
     );
   }
 
-  return <Stack screenOptions={{ headerShown: false }} />;
+  // Once loaded, render the navigation stack
+  return (
+    <Stack screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="index" />
+      <Stack.Screen name="(onboarding)" />
+      <Stack.Screen name="(auth)" />
+      <Stack.Screen name="(home)" />
+    </Stack>
+  );
 }
 
+// --- Root Component with Providers ---
 export default function RootLayout() {
-  const clerkPublishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY;
-
-  if (!clerkPublishableKey) {
-    return (
-      <View style={tw`flex-1 justify-center items-center bg-red-50`}>
-        <Text style={tw`text-red-600 text-lg text-center`}>
-          Configuration Error{'\n'}
-          Missing Clerk publishable key{'\n'}
-          Check your .env file
-        </Text>
-      </View>
-    );
-  }
-
   return (
-    <ClerkProvider publishableKey={clerkPublishableKey} tokenCache={tokenCache}>
-      <AuthProvider>
-        <RootLayoutNav />
-      </AuthProvider>
-    </ClerkProvider>
+    <AuthProvider>
+      <RootLayoutNav />
+    </AuthProvider>
   );
-} 
+}

@@ -1,6 +1,6 @@
 import React from 'react';
 import { TouchableOpacity, Text, Alert } from 'react-native';
-import { useAuth } from '@clerk/clerk-expo';
+import { useAuthContext } from '../context/AuthContext';
 import tw from 'twrnc';
 
 interface SignOutButtonProps {
@@ -8,7 +8,7 @@ interface SignOutButtonProps {
 }
 
 export function SignOutButton({ isDark = false }: SignOutButtonProps) {
-    const { signOut } = useAuth();
+    const { signOut } = useAuthContext();
 
     const handleSignOut = () => {
         Alert.alert(
@@ -22,6 +22,7 @@ export function SignOutButton({ isDark = false }: SignOutButtonProps) {
                 {
                     text: 'Sign Out',
                     style: 'destructive',
+                    // The root layout will handle navigation after signOut updates the context.
                     onPress: () => signOut(),
                 },
             ]
