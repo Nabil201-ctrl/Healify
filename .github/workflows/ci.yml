@@ -27,14 +27,15 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # Note: continue-on-error is used because there are pre-existing type issues
+      # in the codebase. Remove this once the type errors are fixed.
       - name: TypeScript type check
         run: npx tsc --noEmit
         continue-on-error: true
 
       - name: Expo Doctor
-        run: npx expo-doctor
-        continue-on-error: true
+        run: npx expo doctor
 
       - name: Export for web (bundle validation)
         run: npx expo export --platform web
-        continue-on-error: true
+
