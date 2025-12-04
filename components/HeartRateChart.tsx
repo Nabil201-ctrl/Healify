@@ -1,7 +1,6 @@
 import React from 'react';
-import { View, Text } from 'react-native';
+import { View, Text, useWindowDimensions } from 'react-native';
 import { LineChart } from 'react-native-chart-kit';
-import { Dimensions } from 'react-native';
 import tw from 'twrnc';
 
 interface HeartRateChartProps {
@@ -9,7 +8,9 @@ interface HeartRateChartProps {
 }
 
 export function HeartRateChart({ isDark = false }: HeartRateChartProps) {
-    const screenWidth = Dimensions.get('window').width - 40;
+    const { width } = useWindowDimensions();
+    // Calculate chart width: screen width - (padding left/right 20px each + container padding 16px each + border)
+    const chartWidth = width - 72;
 
     const heartRateData = {
         labels: ['6AM', '9AM', '12PM', '3PM', '6PM', '9PM'],
@@ -61,11 +62,11 @@ export function HeartRateChart({ isDark = false }: HeartRateChartProps) {
             
             <LineChart
                 data={heartRateData}
-                width={screenWidth}
-                height={220}
+                width={chartWidth}
+                height={200}
                 chartConfig={chartConfig}
                 bezier
-                style={tw`rounded-xl`}
+                style={tw`rounded-xl -ml-4`}
                 withVerticalLines={false}
                 withHorizontalLines={false}
                 withInnerLines={false}

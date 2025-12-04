@@ -19,18 +19,32 @@ export default function SignUpScreen() {
         }
         setLoading(true);
         try {
-            // SPECIFICATION: Server API call to sign up would happen here.
+            console.log('[SignUp] Attempting sign up for:', emailAddress);
             await signUp({
                 email: emailAddress,
                 firstName: firstName,
                 lastName: lastName,
-                // In our mock, onboarding is handled separately before auth.
-                // We'll assume new users haven't done the "app" onboarding.
-                hasCompletedOnboarding: false 
+                password: password,
             });
+            console.log('[SignUp] Sign up successful');
             // On success, the root layout will handle navigation.
         } catch (err: any) {
-            Alert.alert('Sign Up Failed', err.message);
+            console.error('[SignUp] Error:', err);
+            let errorMessage = 'An error occurred during sign up';
+            
+            // Handle specific error cases
+            if (err?.response?.data?.message) {
+                errorMessage = err.response.data.message;
+            } else if (err?.message) {
+                errorMessage = err.message;
+            }
+            
+            // Handle duplicate email specifically
+            if (errorMessage.includes('already registered') || errorMessage.includes('duplicate')) {
+                errorMessage = 'This email is already registered. Please sign in or use a different email.';
+            }
+            
+            Alert.alert('Sign Up Failed', errorMessage);
         } finally {
             setLoading(false);
         }

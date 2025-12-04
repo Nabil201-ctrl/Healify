@@ -1,7 +1,6 @@
 import React from 'react';
-import { View, Text } from 'react-native';
+import { View, Text, useWindowDimensions } from 'react-native';
 import { BarChart } from 'react-native-chart-kit';
-import { Dimensions } from 'react-native';
 import tw from 'twrnc';
 
 interface ActivityChartProps {
@@ -9,7 +8,8 @@ interface ActivityChartProps {
 }
 
 export default function ActivityChart({ isDark = false }: ActivityChartProps) {
-    const screenWidth = Dimensions.get('window').width - 40;
+    const { width } = useWindowDimensions();
+    const chartWidth = width - 72;
 
     const activityData = {
         labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
@@ -50,10 +50,10 @@ export default function ActivityChart({ isDark = false }: ActivityChartProps) {
             
             <BarChart
                 data={activityData}
-                width={screenWidth}
-                height={220}
+                width={chartWidth}
+                height={200}
                 chartConfig={chartConfig}
-                style={tw`rounded-xl`}
+                style={tw`rounded-xl -ml-4`}
                 showValuesOnTopOfBars
                 withCustomBarColorFromData
                 flatColor
