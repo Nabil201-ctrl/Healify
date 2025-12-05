@@ -1,0 +1,4 @@
+# ChatMicroservice Environment Variables
+node_modules
+.env
+*.log

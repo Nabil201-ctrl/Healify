@@ -31,10 +31,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const checkSession = async () => {
       try {
         let token = await AsyncStorage.getItem('accessToken');
+        let refreshTokenStored = await AsyncStorage.getItem('refreshToken');
         let triedRefresh = false;
         
-        if (!token) {
-          // Try to refresh if no access token
+        // Only try to refresh if we have a refresh token
+        if (!token && refreshTokenStored) {
           try {
             console.log('[AuthContext] No access token, attempting refresh...');
             const { accessToken } = await AuthService.refreshToken();
@@ -49,29 +50,33 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           }
         }
         
-        // Try to fetch user with (possibly refreshed) token
-        try {
-          const { data } = await api.get('/users/me');
-          setUser(data);
-        } catch (error) {
-          console.error('[AuthContext] Error fetching user:', error);
-          if (!triedRefresh) {
-            // Try refresh if not already tried
-            try {
-              console.log('[AuthContext] User fetch failed, attempting refresh...');
-              const { accessToken } = await AuthService.refreshToken();
-              await AsyncStorage.setItem('accessToken', accessToken);
-              const { data } = await api.get('/users/me');
-              setUser(data);
-            } catch (refreshError) {
-              console.error('[AuthContext] Refresh failed after user fetch error:', refreshError);
+        // Only try to fetch user if we have a token
+        if (token) {
+          try {
+            const { data } = await api.get('/users/me');
+            setUser(data);
+          } catch (error) {
+            console.error('[AuthContext] Error fetching user:', error);
+            if (!triedRefresh && refreshTokenStored) {
+              // Try refresh once if user fetch fails and we haven't tried yet
+              try {
+                console.log('[AuthContext] User fetch failed, attempting refresh...');
+                const { accessToken } = await AuthService.refreshToken();
+                await AsyncStorage.setItem('accessToken', accessToken);
+                const { data } = await api.get('/users/me');
+                setUser(data);
+              } catch (refreshError) {
+                console.error('[AuthContext] Refresh failed after user fetch error:', refreshError);
+                await AsyncStorage.multiRemove(['accessToken', 'refreshToken']);
+                setUser(null);
+              }
+            } else {
               await AsyncStorage.multiRemove(['accessToken', 'refreshToken']);
               setUser(null);
             }
-          } else {
-            await AsyncStorage.multiRemove(['accessToken', 'refreshToken']);
-            setUser(null);
           }
+        } else {
+          setUser(null);
         }
       } catch (e) {
         console.error('[AuthContext] Error checking session:', e);

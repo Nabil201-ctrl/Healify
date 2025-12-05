@@ -14,9 +14,12 @@ const api = axios.create({
 // ✅ Automatically attach token before every request
 api.interceptors.request.use(
     async (config) => {
-        const token = await AsyncStorage.getItem("accessToken");
-        if (token) {
-            config.headers.Authorization = `Bearer ${token}`;
+        // Don't add access token to refresh endpoint (it uses refresh token instead)
+        if (config.url !== '/auth/refresh') {
+            const token = await AsyncStorage.getItem("accessToken");
+            if (token) {
+                config.headers.Authorization = `Bearer ${token}`;
+            }
         }
         return config;
     },
@@ -43,6 +46,11 @@ api.interceptors.response.use(
     (response) => response,
     async (error) => {
         const originalRequest = error.config;
+        // Don't retry refresh endpoint itself
+        if (originalRequest.url === '/auth/refresh' || !error.response) {
+            return Promise.reject(error);
+        }
+        
         if (error.response && error.response.status === 401 && !originalRequest._retry) {
             if (isRefreshing) {
                 return new Promise(function(resolve, reject) {

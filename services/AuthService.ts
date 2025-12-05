@@ -38,14 +38,21 @@ const getAccessToken = async (): Promise<string | null> => {
 // Request new tokens using the refresh token
 const refreshToken = async (): Promise<{ accessToken: string; refreshToken: string }> => {
   const storedRefreshToken = await AsyncStorage.getItem("refreshToken");
-  if (!storedRefreshToken) throw new Error("No refresh token available");
+  if (!storedRefreshToken) {
+    console.error("[AuthService] No refresh token available");
+    throw new Error("No refresh token available");
+  }
   try {
+    console.log("[AuthService] Attempting to refresh token...");
     const { data } = await api.post("/auth/refresh", {}, {
       headers: { Authorization: `Bearer ${storedRefreshToken}` }
     });
+    
+    console.log("[AuthService] Token refresh successful");
     await saveTokens(data.accessToken, data.refreshToken);
     return data;
   } catch (error) {
+    console.error("[AuthService] Token refresh failed:", error);
     await AsyncStorage.multiRemove(["accessToken", "refreshToken"]);
     throw error;
   }

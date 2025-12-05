@@ -1,5 +1,13 @@
 // backend/src/auth/auth.controller.ts
-import { Controller, Post, Body, HttpCode, HttpStatus, UseGuards, Req } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  HttpCode,
+  HttpStatus,
+  UseGuards,
+  Req,
+} from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { CreateUserDto } from '../users/dto/create-user.dto';
 import { LoginDto } from './dto/login.dto';
@@ -35,7 +43,7 @@ export class AuthController {
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
   refreshTokens(@Req() req: Request) {
-    const user = req.user as { sub: string, refreshToken: string };
+    const user = req.user as { sub: string; refreshToken: string };
     return this.authService.refreshTokens(user.sub, user.refreshToken);
   }
 }

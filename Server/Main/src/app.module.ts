@@ -4,9 +4,11 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
+import { ChatModule } from './chat/chat.module';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
 import { HealthController } from './health.controller';
+import { RedisModule } from './redis/redis.module';
 
 @Module({
   imports: [
@@ -17,11 +19,15 @@ import { HealthController } from './health.controller';
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => ({
-        uri: configService.get<string>('MONGODB_URI') || 'mongodb://localhost:27017/healify',
+        uri:
+          configService.get<string>('MONGODB_URI') ||
+          'mongodb://localhost:27017/healify',
       }),
     }),
     AuthModule,
     UsersModule,
+    ChatModule,
+    RedisModule,
   ],
   controllers: [AppController, HealthController],
   providers: [AppService],

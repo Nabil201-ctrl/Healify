@@ -9,19 +9,15 @@ import { JwtStrategy } from './strategies/jwt.strategy';
 import { JwtRefreshStrategy } from './strategies/jwt-refresh.strategy';
 
 @Module({
-
   imports: [
-
     UsersModule,
 
     PassportModule,
 
     JwtModule.register({}), // We configure secrets in the service/strategy directly with env vars
-
   ],
   providers: [AuthService, JwtStrategy, JwtRefreshStrategy],
   controllers: [AuthController],
   exports: [AuthService],
 })
 export class AuthModule {}
-
