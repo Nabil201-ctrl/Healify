@@ -51,10 +51,11 @@ export default function ActivityChart({ isDark = false }: ActivityChartProps) {
         },
     };
 
-    if (loading || !data) {
+    if (loading || !data || !data.datasets) {
         return (
             <View style={tw`${isDark ? 'bg-gray-800' : 'bg-white'} rounded-2xl p-4 shadow-md mb-6 border ${isDark ? 'border-gray-700' : 'border-gray-200'} h-64 justify-center items-center`}>
                 <ActivityIndicator size="large" color={isDark ? '#60a5fa' : '#3b82f6'} />
+                {!loading && !data?.datasets && <Text style={tw`text-gray-500 mt-2`}>No activity data available</Text>}
             </View>
         );
     }

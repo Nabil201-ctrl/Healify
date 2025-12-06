@@ -20,12 +20,16 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RabbitMQService } from '../services/rabbitmq.service';
 import { CacheService } from '../services/cache.service';
 
+import { IsString, IsOptional, IsNotEmpty } from 'class-validator';
+
 class SendMessageDto {
   @ApiProperty({
     description: 'The message to send to the AI chat bot',
     example: 'What exercises can help with lower back pain?',
     type: String,
   })
+  @IsString()
+  @IsNotEmpty()
   message: string;
 
   @ApiProperty({
@@ -34,6 +38,8 @@ class SendMessageDto {
     required: false,
     type: String,
   })
+  @IsString()
+  @IsOptional()
   sessionId?: string;
 }
 
@@ -45,7 +51,7 @@ export class ChatController {
   constructor(
     private readonly rabbitMQService: RabbitMQService,
     private readonly cacheService: CacheService,
-  ) {}
+  ) { }
 
   @Post('send')
   @ApiOperation({
@@ -226,11 +232,10 @@ export class ChatController {
     }
 
     try {
-      // TODO: Implement chat history retrieval from database
+      const history = await this.rabbitMQService.requestChatHistory(userId);
       return {
         success: true,
-        history: [],
-        message: 'Chat history retrieval not yet implemented',
+        history: history,
       };
     } catch (error) {
       console.error('Failed to get chat history:', error);

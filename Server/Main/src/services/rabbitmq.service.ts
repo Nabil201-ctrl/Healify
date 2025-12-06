@@ -10,6 +10,7 @@ export class RabbitMQService implements OnModuleInit, OnModuleDestroy {
     process.env.RABBITMQ_URL || 'amqp://localhost';
   private readonly CHAT_QUEUE = 'chat_requests';
   private readonly RESPONSE_QUEUE = 'chat_responses';
+  private readonly HISTORY_REQUEST_QUEUE = 'chat_history_request';
   private readonly HEALTH_QUEUE = 'health_requests';
   private readonly HEALTH_RESPONSE_QUEUE = 'health_responses';
   private readonly HEALTH_SYNC_QUEUE = 'health_sync';
@@ -97,6 +98,42 @@ export class RabbitMQService implements OnModuleInit, OnModuleDestroy {
         this.pendingRequests.delete(correlationId);
         reject(error);
       }
+    });
+  }
+
+  async requestChatHistory(userId: string): Promise<any[]> {
+    if (!this.channel) {
+      throw new Error('RabbitMQ channel not initialized');
+    }
+
+    const correlationId = Math.random().toString() + Math.random().toString();
+    const replyTo = await this.channel.assertQueue('', { exclusive: true });
+
+    return new Promise((resolve, reject) => {
+      // Listen for response
+      this.channel.consume(
+        replyTo.queue,
+        (msg) => {
+          if (msg && msg.properties.correlationId === correlationId) {
+            const content = JSON.parse(msg.content.toString());
+            resolve(content.history);
+            this.channel.deleteQueue(replyTo.queue);
+          }
+        },
+        { noAck: true },
+      );
+
+      // Send request
+      this.channel.sendToQueue(
+        this.HISTORY_REQUEST_QUEUE,
+        Buffer.from(JSON.stringify({ userId })),
+        { correlationId, replyTo: replyTo.queue },
+      );
+
+      // Timeout
+      setTimeout(() => {
+        resolve([]); // Return empty history on timeout
+      }, 5000);
     });
   }
 

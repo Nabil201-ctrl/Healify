@@ -55,10 +55,11 @@ export function HeartRateChart({ isDark = false }: HeartRateChartProps) {
         },
     };
 
-    if (loading || !data) {
+    if (loading || !data || !data.datasets) {
         return (
             <View style={tw`${isDark ? 'bg-gray-800' : 'bg-white'} rounded-2xl p-4 shadow-md mb-6 border ${isDark ? 'border-gray-700' : 'border-gray-200'} h-64 justify-center items-center`}>
                 <ActivityIndicator size="large" color={isDark ? '#ec4899' : '#ec4899'} />
+                {!loading && !data?.datasets && <Text style={tw`text-gray-500 mt-2`}>No heart rate data available</Text>}
             </View>
         );
     }

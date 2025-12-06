@@ -7,12 +7,14 @@ import { ThemeProvider } from '../context/ThemeContext';
 import { OnboardingService } from '../services/OnboardingService';
 import tw from 'twrnc';
 
+import { registerForPushNotificationsAsync } from '../services/NotificationService';
+
 // --- Main Navigation Logic ---
 function RootLayoutNav() {
   const { isLoading: isAuthLoading, isSignedIn } = useAuthContext();
   const [isOnboardingLoading, setOnboardingLoading] = useState(true);
   const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(false);
-  
+
   const segments = useSegments();
   const router = useRouter();
 
@@ -24,6 +26,14 @@ function RootLayoutNav() {
       setOnboardingLoading(false);
     };
     checkOnboarding();
+
+    // Register for Push Notifications
+    registerForPushNotificationsAsync().then(token => {
+      if (token) {
+        console.log("Push Token retrieved:", token);
+        // TODO: Send this token to backend to associate with user
+      }
+    });
   }, []);
 
   useEffect(() => {

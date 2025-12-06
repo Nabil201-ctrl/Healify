@@ -5,7 +5,7 @@ import { Redis } from '@upstash/redis';
 export class CacheService {
   constructor(
     @Inject('UPSTASH_REDIS_CLIENT') private readonly redisClient: Redis,
-  ) {}
+  ) { }
 
   private isAvailable(): boolean {
     return this.redisClient !== null;
@@ -44,6 +44,10 @@ export class CacheService {
       if (!data) return null;
 
       try {
+        // Upstash might return the object directly if it was stored as JSON, 
+        // or string if stored as string. 
+        // Our 'set' stores JSON.stringify(value).
+        // So 'get' returns the stringified JSON.
         return JSON.parse(data as string) as T;
       } catch {
         return data as T;

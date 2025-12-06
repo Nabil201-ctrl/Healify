@@ -1,58 +1,38 @@
-import { createClient } from 'redis';
-import dotenv from "dotenv"
-dotenv.config()
+import { Redis } from '@upstash/redis';
+import dotenv from "dotenv";
+dotenv.config();
 
-let REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
-if (!REDIS_URL.includes('://')) {
-  console.warn(`[Redis] URL missing protocol, prepending redis:// to ${REDIS_URL}`);
-  REDIS_URL = `redis://${REDIS_URL}`;
-}
-console.log(`[Redis] Connecting to: ${REDIS_URL}`);
+// Initialize Upstash Redis client immediately (stateless HTTP)
+const redisClient = new Redis({
+  url: process.env.UPSTASH_REDIS_REST_URL,
+  token: process.env.UPSTASH_REDIS_REST_TOKEN,
+});
 
-let redisClient = null;
+console.log("Upstash Redis client initialized");
 
+// No-op for compatibility with existing code calling this
 async function createRedisConnection() {
-  if (redisClient) {
-    return redisClient;
-  }
-
-  try {
-    redisClient = createClient({
-      url: REDIS_URL,
-    });
-
-    redisClient.on('error', (err) => {
-      console.error('Redis Client Error:', err);
-    });
-
-    redisClient.on('connect', () => {
-      console.log('Redis Client Connected (ChatMicroservice)');
-    });
-
-    await redisClient.connect();
-    return redisClient;
-  } catch (error) {
-    console.error('Failed to connect to Redis:', error);
-    throw error;
-  }
+  return redisClient;
 }
 
 function getRedisClient() {
-  if (!redisClient) {
-    throw new Error('Redis client not initialized. Call createRedisConnection first.');
-  }
   return redisClient;
 }
 
 async function cacheResponse(sessionId, response, ttl = 3600) {
-  const client = getRedisClient();
-  await client.setEx(`ai:response:${sessionId}`, ttl, JSON.stringify(response));
+  // Upstash setex: key, seconds, value
+  await redisClient.setex(`chat:session:${sessionId}`, ttl, JSON.stringify(response));
 }
 
 async function getCachedResponse(sessionId) {
-  const client = getRedisClient();
-  const cached = await client.get(`ai:response:${sessionId}`);
-  return cached ? JSON.parse(cached) : null;
+  const cached = await redisClient.get(`chat:session:${sessionId}`);
+  // Upstash returns the value directly if it's a string/object
+  if (!cached) return null;
+  try {
+    return typeof cached === 'string' ? JSON.parse(cached) : cached;
+  } catch (e) {
+    return cached;
+  }
 }
 
 export { createRedisConnection, getRedisClient, cacheResponse, getCachedResponse };

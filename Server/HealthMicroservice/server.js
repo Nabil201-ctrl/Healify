@@ -1,5 +1,7 @@
 import express from 'express';
 import cors from 'cors';
+import dotenv from "dotenv"
+dotenv.config()
 import { EstablishConnection, getChannel, publishResponse, publishNotification, publishAIContextUpdate, HEALTH_QUEUE, HEALTH_SYNC_QUEUE, AI_CONTEXT_REQUEST_QUEUE } from './config/Mq.js';
 
 const app = express();

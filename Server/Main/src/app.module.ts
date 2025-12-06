@@ -21,9 +21,11 @@ import { RedisModule } from './redis/redis.module';
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => ({
-        uri:
-          configService.get<string>('MONGODB_URI') ||
+        uri: configService.get<string>('MONGODB_URI') ||
           'mongodb://localhost:27017/healify',
+        serverSelectionTimeoutMS: 60000, // 60s
+        connectTimeoutMS: 60000, // 60s
+        socketTimeoutMS: 60000, // 60s
       }),
     }),
     AuthModule,
