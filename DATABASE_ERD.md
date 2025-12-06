@@ -12,168 +12,151 @@ The system uses a **microservices architecture** where each microservice maintai
 
 ## Main Service Database
 
-```eraser
-users [icon: user, color: blue] {
-  id string pk
-  displayName string
-  email string
-  password string
-  firstName string
-  lastName string
-  refreshToken string
-  createdAt timestamp
-  updatedAt timestamp
-}
+```mermaid
+erDiagram
+    users {
+        string id PK
+        string displayName
+        string email
+        string password
+        string firstName
+        string createdAt
+        string updatedAt
+    }
 
-UserHealthData [icon: heart, color: red] {
-  id string pk
-  userId string fk
-  height number
-  weight number
-  bloodType string
-  allergies string
-  medications string
-  medicalHistory string
-  lastCheckup timestamp
-  createdAt timestamp
-  updatedAt timestamp
-}
+    UserHealthData {
+        string id PK
+        string userId FK
+        number height
+        number weight
+        string bloodType
+        string allergies
+        string medications
+        string medicalHistory
+        string lastCheckup
+    }
 
-UserVitals [icon: activity, color: pink] {
-  id string pk
-  userId string fk
-  heartRate number
-  bloodPressureSystolic number
-  bloodPressureDiastolic number
-  bloodOxygen number
-  respiratoryRate number
-  bodyTemperature number
-  recordedAt timestamp
-}
+    UserPreferences {
+        string id PK
+        string userId FK
+        number age
+        string relationshipStatus
+        string workStatus
+        string workType
+        string sports
+        string hobbies
+        string therapyGoals
+        string preferredCommunication
+    }
 
-UserActivity [icon: zap, color: orange] {
-  id string pk
-  userId string fk
-  date date
-  steps number
-  caloriesBurned number
-  activeMinutes number
-  distance number
-  floors number
-  stressLevel string
-  bodyBattery number
-  hydration number
-}
+    Chat {
+        string id PK
+        string userId FK
+        number duration
+        timestamp startedAt
+        timestamp endedAt
+        string sessionType
+        string moodBefore
+        string moodAfter
+        string summary
+    }
 
-UserSleep [icon: moon, color: purple] {
-  id string pk
-  userId string fk
-  date date
-  totalHours number
-  deepSleep number
-  lightSleep number
-  remSleep number
-  sleepQuality number
-  bedtime timestamp
-  wakeTime timestamp
-}
+    AIResponse {
+        string id PK
+        string chatId FK
+        string question
+        string response
+        timestamp createdAt
+        string modelUsed
+        number confidenceScore
+    }
 
-UserPreferences [icon: settings, color: gray] {
-  id string pk
-  userId string fk
-  age number
-  relationshipStatus string
-  workStatus string
-  workType string
-  sports string
-  hobbies string
-  therapyGoals string
-  preferredCommunication string
-  notificationsEnabled boolean
-  theme string
-}
+    Invite {
+        string inviteId PK
+        string inviterId FK
+        string inviteeId FK
+        string type
+        string status
+        timestamp sentAt
+        timestamp respondedAt
+    }
 
-users ||--|| UserHealthData : "has"
-users ||--o{ UserVitals : "tracks"
-users ||--o{ UserActivity : "logs"
-users ||--o{ UserSleep : "records"
-users ||--|| UserPreferences : "configures"
-```
+    UserActivity {
+        string id PK
+        string userId FK
+        date date
+        number steps
+        number caloriesBurned
+        number activeMinutes
+        number distance
+        number floors
+        string stressLevel
+        number bodyBattery
+    }
 
-### Main Service Relationships
+    UserVitals {
+        string id PK
+        string userId FK
+        timestamp recordedAt
+        number heartRate
+        number restingHeartRate
+        number minHeartRate
+        number maxHeartRate
+        number avgHeartRate
+    }
 
-- **Users**: Core user authentication and profile data
-- **UserHealthData**: Medical information, allergies, medications
-- **UserVitals**: Real-time vital signs (heart rate, BP, oxygen, etc.)
-- **UserActivity**: Daily activity metrics (steps, calories, distance)
-- **UserSleep**: Sleep tracking and quality analysis
-- **UserPreferences**: User settings and therapy preferences
+    UserSleep {
+        string id PK
+        string userId FK
+        date date
+        number totalDuration
+        number deepSleepDuration
+        number lightSleepDuration
+        number remSleepDuration
+        number sleepQuality
+        timestamp bedtime
+        timestamp wakeTime
+    }
 
----
+    redis {
+        string users:cache
+        string chat:sessions
+        string invites:pending
+        string auth:tokens
+        string health:cache
+        string ai:models
+    }
 
-## Chat Microservice Database
+    users ||--|| UserHealthData : "has health data"
+    users ||--|| UserPreferences : "has preferences"
+    
+    users ||--o{ Chat : "initiates"
+    Chat }o--|| users : "belongs to"
+    
+    users ||--o{ Invite : "sends as inviter"
+    Invite }o--|| users : "inviter"
+    
+    users ||--o{ Invite : "receives as invitee"
+    Invite }o--|| users : "invitee"
+    
+    Chat ||--o{ AIResponse : "generates"
+    AIResponse }o--|| Chat : "belongs to"
 
-```eraser
-Chat [icon: message-circle, color: green] {
-  id string pk
-  userId string fk
-  duration number
-  startedAt timestamp
-  endedAt timestamp
-  sessionType string
-  moodBefore string
-  moodAfter string
-  summary string
-  status string
-}
-
-AIResponse [icon: cpu, color: teal] {
-  id string pk
-  chatId string fk
-  question string
-  response string
-  createdAt timestamp
-  modelUsed string
-  confidenceScore number
-  processingTime number
-}
-
-Invite [icon: mail, color: yellow] {
-  inviteId string pk
-  inviterId string fk
-  inviteeId string fk
-  type string
-  status string
-  sentAt timestamp
-  respondedAt timestamp
-}
-
-Chat ||--o{ AIResponse : "contains"
-users.id <> Invite.inviterId
-users.id <> Invite.inviteeId
-```
-
-### Chat Microservice Relationships
-
-- **Chat**: AI therapy session records with mood tracking
-- **AIResponse**: Individual Q&A within chat sessions with confidence scoring
-- **Invite**: User invitations for shared therapy sessions
-
----
-
-## Redis Cache Layer
-
-```eraser
-redis [icon: database, color: orange] {
-  users:cache
-  health:vitals
-  activity:daily
-  sleep:records
-  chat:sessions
-  ai:responses
-  invites:pending
-  auth:tokens
-}
+    users ||--o{ UserActivity : "logs"
+    users ||--o{ UserVitals : "tracks"
+    users ||--o{ UserSleep : "records"
+    
+    users ||--o{ redis : "cached in"
+    redis }|--|| users : "cache for"
+    
+    UserHealthData ||--o{ redis : "cached in"
+    redis }|--|| UserHealthData : "cache for"
+    
+    Chat ||--o{ redis : "active sessions in"
+    redis }|--|| Chat : "session cache for"
+    
+    Invite ||--o{ redis : "pending in"
+    redis }|--|| Invite : "cache for"
 ```
 
 ### Redis Usage

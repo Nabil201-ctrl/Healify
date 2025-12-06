@@ -2,9 +2,11 @@ import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { AuthService } from "../services/AuthService";
 
+export const API_URL = process.env.EXPO_PUBLIC_API_BASE_URL || "http://localhost:3000";
+
 // ✅ Create Axios instance
 const api = axios.create({
-    baseURL: process.env.EXPO_PUBLIC_API_BASE_URL || "http://localhost:3000",
+    baseURL: API_URL,
     timeout: 10000,
     headers: {
         "Content-Type": "application/json",
@@ -50,17 +52,17 @@ api.interceptors.response.use(
         if (originalRequest.url === '/auth/refresh' || !error.response) {
             return Promise.reject(error);
         }
-        
+
         if (error.response && error.response.status === 401 && !originalRequest._retry) {
             if (isRefreshing) {
-                return new Promise(function(resolve, reject) {
+                return new Promise(function (resolve, reject) {
                     failedQueue.push({ resolve, reject });
                 })
-                .then((token) => {
-                    originalRequest.headers["Authorization"] = `Bearer ${token}`;
-                    return api(originalRequest);
-                })
-                .catch((err) => Promise.reject(err));
+                    .then((token) => {
+                        originalRequest.headers["Authorization"] = `Bearer ${token}`;
+                        return api(originalRequest);
+                    })
+                    .catch((err) => Promise.reject(err));
             }
             originalRequest._retry = true;
             isRefreshing = true;

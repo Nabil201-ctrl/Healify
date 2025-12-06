@@ -7,8 +7,10 @@ import { UsersModule } from './users/users.module';
 import { ChatModule } from './chat/chat.module';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
-import { HealthController } from './health.controller';
+import { HealthModule } from './health/health.module';
 import { RedisModule } from './redis/redis.module';
+// import { NotificationModule } from './notification/notification.module';
+// import { NotificationController } from './notification/notification.controller';
 
 @Module({
   imports: [
@@ -28,8 +30,10 @@ import { RedisModule } from './redis/redis.module';
     UsersModule,
     ChatModule,
     RedisModule,
+    // NotifcationModule,
+    HealthModule,
   ],
-  controllers: [AppController, HealthController],
+  controllers: [AppController /*, NotificationController */],
   providers: [AppService],
 })
-export class AppModule {}
+export class AppModule { }

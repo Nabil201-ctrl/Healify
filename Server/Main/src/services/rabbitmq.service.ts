@@ -1,5 +1,6 @@
 import { Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import * as amqplib from 'amqplib';
+import { randomUUID } from 'crypto';
 
 @Injectable()
 export class RabbitMQService implements OnModuleInit, OnModuleDestroy {
@@ -9,6 +10,11 @@ export class RabbitMQService implements OnModuleInit, OnModuleDestroy {
     process.env.RABBITMQ_URL || 'amqp://localhost';
   private readonly CHAT_QUEUE = 'chat_requests';
   private readonly RESPONSE_QUEUE = 'chat_responses';
+  private readonly HEALTH_QUEUE = 'health_requests';
+  private readonly HEALTH_RESPONSE_QUEUE = 'health_responses';
+  private readonly HEALTH_SYNC_QUEUE = 'health_sync';
+
+  private pendingRequests = new Map<string, { resolve: (value: any) => void; reject: (reason?: any) => void; timeout: NodeJS.Timeout }>();
 
   async onModuleInit() {
     await this.connect();
@@ -26,11 +32,15 @@ export class RabbitMQService implements OnModuleInit, OnModuleDestroy {
       // Assert queues
       await this.channel.assertQueue(this.CHAT_QUEUE, { durable: true });
       await this.channel.assertQueue(this.RESPONSE_QUEUE, { durable: true });
+      await this.channel.assertQueue(this.HEALTH_QUEUE, { durable: true });
+      await this.channel.assertQueue(this.HEALTH_RESPONSE_QUEUE, { durable: true });
+      await this.channel.assertQueue(this.HEALTH_SYNC_QUEUE, { durable: true });
 
       console.log('RabbitMQ connected and queues asserted');
 
       // Start consuming responses
       this.consumeResponses();
+      this.consumeHealthResponses();
     } catch (error) {
       console.error('Failed to connect to RabbitMQ:', error);
       throw error;
@@ -59,6 +69,51 @@ export class RabbitMQService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
+  async fetchHealthData(dataType: string): Promise<any> {
+    const correlationId = randomUUID();
+    const payload = {
+      type: dataType,
+      correlationId,
+      timestamp: new Date().toISOString(),
+    };
+
+    return new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        this.pendingRequests.delete(correlationId);
+        reject(new Error('Health service request timed out'));
+      }, 5000) as any as NodeJS.Timeout; // 5 second timeout
+
+      this.pendingRequests.set(correlationId, { resolve, reject, timeout });
+
+      try {
+        this.channel.sendToQueue(
+          this.HEALTH_QUEUE,
+          Buffer.from(JSON.stringify(payload)),
+          { persistent: true },
+        );
+        console.log(`Health request sent: ${dataType}, correlationId: ${correlationId}`);
+      } catch (error) {
+        clearTimeout(timeout);
+        this.pendingRequests.delete(correlationId);
+        reject(error);
+      }
+    });
+  }
+
+  async sendHealthSync(data: any) {
+    try {
+      this.channel.sendToQueue(
+        this.HEALTH_SYNC_QUEUE,
+        Buffer.from(JSON.stringify(data)),
+        { persistent: true },
+      );
+      console.log('Health sync data sent to queue:', data);
+    } catch (error) {
+      console.error('Failed to send health sync data:', error);
+      throw error;
+    }
+  }
+
   private async consumeResponses() {
     try {
       await this.channel.consume(
@@ -78,6 +133,44 @@ export class RabbitMQService implements OnModuleInit, OnModuleDestroy {
       );
     } catch (error) {
       console.error('Failed to consume responses:', error);
+    }
+  }
+
+  private async consumeHealthResponses() {
+    try {
+      await this.channel.consume(
+        this.HEALTH_RESPONSE_QUEUE,
+        async (msg) => {
+          if (msg) {
+            const response = JSON.parse(msg.content.toString());
+            const { correlationId, data, error } = response;
+
+            console.log(`Received health response for ${correlationId}`);
+
+            if (this.pendingRequests.has(correlationId)) {
+              const request = this.pendingRequests.get(correlationId);
+              if (request) {
+                const { resolve, reject, timeout } = request;
+                clearTimeout(timeout);
+                this.pendingRequests.delete(correlationId);
+
+                if (error) {
+                  reject(new Error(error));
+                } else {
+                  resolve(data);
+                }
+              }
+            } else {
+              console.warn(`Received response for unknown correlationId: ${correlationId}`);
+            }
+
+            this.channel.ack(msg);
+          }
+        },
+        { noAck: false },
+      );
+    } catch (error) {
+      console.error('Failed to consume health responses:', error);
     }
   }
 

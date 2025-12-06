@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Text, View,ActivityIndicator,TouchableOpacity, ScrollView, RefreshControl } from 'react-native';
+import { Text, View, ActivityIndicator, TouchableOpacity, ScrollView, RefreshControl, useColorScheme, useWindowDimensions } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuthContext } from '../../context/AuthContext';
@@ -13,37 +13,54 @@ import { VitalSignsSection } from '../../components/VitalSignsSection';
 import { SignOutButton } from '../../components/SignOutButton';
 import tw from 'twrnc';
 
-export default function Dashboard() {
-    const { user, signOut } = useAuthContext(); 
-    const { isDark, toggleTheme } = useTheme();
+import { syncHealthData } from '../../services/HealthService';
+
+export default function Home() {
+    const { user, signOut } = useAuthContext();
     const router = useRouter();
     const [refreshing, setRefreshing] = useState(false);
+    const { width } = useWindowDimensions();
+    const [isDark, setIsDark] = useState(false);
+    const colorScheme = useColorScheme();
+
+    useEffect(() => {
+        setIsDark(colorScheme === 'dark');
+    }, [colorScheme]);
+
+    useEffect(() => {
+        // Sync health data when dashboard loads
+        syncHealthData();
+    }, []);
+
+    const toggleTheme = () => {
+        setIsDark(prev => !prev);
+    };
 
     // Dark mode color scheme
     const colors = {
-      // Background colors
-      bgPrimary: isDark ? 'bg-gray-900' : 'bg-gray-50',
-      bgSecondary: isDark ? 'bg-gray-800' : 'bg-white',
-      bgTertiary: isDark ? 'bg-gray-700' : 'bg-gray-100',
-      
-      // Text colors
-      textPrimary: isDark ? 'text-white' : 'text-gray-800',
-      textSecondary: isDark ? 'text-gray-300' : 'text-gray-600',
-      textTertiary: isDark ? 'text-gray-400' : 'text-gray-500',
-      
-      // Border colors
-      border: isDark ? 'border-gray-700' : 'border-gray-200',
-      
-      // Special colors
-      success: isDark ? 'bg-green-900' : 'bg-green-50',
-      successText: isDark ? 'text-green-300' : 'text-green-800',
-      successBorder: isDark ? 'border-green-800' : 'border-green-200',
-      
-      warning: isDark ? 'bg-orange-900' : 'bg-orange-50',
-      warningText: isDark ? 'text-orange-300' : 'text-orange-800',
-      
-      error: isDark ? 'bg-red-900' : 'bg-red-50',
-      errorText: isDark ? 'text-red-300' : 'text-red-600',
+        // Background colors
+        bgPrimary: isDark ? 'bg-gray-900' : 'bg-gray-50',
+        bgSecondary: isDark ? 'bg-gray-800' : 'bg-white',
+        bgTertiary: isDark ? 'bg-gray-700' : 'bg-gray-100',
+
+        // Text colors
+        textPrimary: isDark ? 'text-white' : 'text-gray-800',
+        textSecondary: isDark ? 'text-gray-300' : 'text-gray-600',
+        textTertiary: isDark ? 'text-gray-400' : 'text-gray-500',
+
+        // Border colors
+        border: isDark ? 'border-gray-700' : 'border-gray-200',
+
+        // Special colors
+        success: isDark ? 'bg-green-900' : 'bg-green-50',
+        successText: isDark ? 'text-green-300' : 'text-green-800',
+        successBorder: isDark ? 'border-green-800' : 'border-green-200',
+
+        warning: isDark ? 'bg-orange-900' : 'bg-orange-50',
+        warningText: isDark ? 'text-orange-300' : 'text-orange-800',
+
+        error: isDark ? 'bg-red-900' : 'bg-red-50',
+        errorText: isDark ? 'text-red-300' : 'text-red-600',
     };
 
     // Manual refresh for data (not for auth state)
@@ -85,8 +102,8 @@ export default function Dashboard() {
                 contentContainerStyle={tw`p-5 pb-8`}
                 showsVerticalScrollIndicator={false}
                 refreshControl={
-                    <RefreshControl 
-                        refreshing={refreshing} 
+                    <RefreshControl
+                        refreshing={refreshing}
                         onRefresh={onRefresh}
                         colors={['#16a34a']}
                         tintColor={isDark ? '#16a34a' : '#16a34a'}
@@ -103,7 +120,7 @@ export default function Dashboard() {
                             User ID: {user?.id?.substring(0, 8)}...
                         </Text>
                     </View>
-                    <TouchableOpacity 
+                    <TouchableOpacity
                         onPress={toggleTheme}
                         style={tw`${isDark ? 'bg-yellow-500' : 'bg-gray-700'} w-12 h-12 rounded-2xl items-center justify-center`}
                     >
@@ -114,7 +131,7 @@ export default function Dashboard() {
                 </View>
 
                 {/* Header with Gradient */}
-                <DashboardHeader 
+                <DashboardHeader
                     userName={user?.firstName || 'User'}
                     lastSyncTime="2 min ago" // SPECIFICATION: This would come from API data
                     isDark={isDark}
@@ -184,7 +201,7 @@ export default function Dashboard() {
                     <Text style={tw`text-lg font-bold ${colors.textPrimary} mb-4`}>
                         More Metrics
                     </Text>
-                    
+
                     <View style={tw`flex-row justify-between mb-3`}>
                         <View style={tw`flex-1 ${isDark ? 'bg-cyan-900' : 'bg-cyan-50'} p-3 rounded-xl mr-2 border ${isDark ? 'border-cyan-800' : 'border-cyan-100'}`}>
                             <Text style={tw`text-xs ${isDark ? 'text-cyan-300' : 'text-cyan-700'} font-medium mb-1`}>Distance</Text>
@@ -250,7 +267,7 @@ export default function Dashboard() {
                     <View style={tw`flex-row space-x-2`}>
                         {/* The SignOutButton now uses the new AuthContext internally */}
                         <SignOutButton />
-                        <TouchableOpacity 
+                        <TouchableOpacity
                             onPress={toggleTheme}
                             style={tw`flex-1 ${isDark ? 'bg-yellow-600' : 'bg-gray-600'} py-2 rounded-lg`}
                         >

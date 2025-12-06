@@ -1,6 +1,13 @@
 import { createClient } from 'redis';
+import dotenv from "dotenv"
+dotenv.config()
 
-const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
+let REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
+if (!REDIS_URL.includes('://')) {
+  console.warn(`[Redis] URL missing protocol, prepending redis:// to ${REDIS_URL}`);
+  REDIS_URL = `redis://${REDIS_URL}`;
+}
+console.log(`[Redis] Connecting to: ${REDIS_URL}`);
 
 let redisClient = null;
 

@@ -15,7 +15,11 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.anonymous.HealthCareApp",
-      "usesAppleSignIn": true
+      "usesAppleSignIn": true,
+      "infoPlist": {
+        "NSHealthShareUsageDescription": "Read heart rate and steps to track your health.",
+        "NSHealthUpdateUsageDescription": "Update your health data."
+      }
     },
     "android": {
       "adaptiveIcon": {
