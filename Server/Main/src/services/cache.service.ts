@@ -119,4 +119,39 @@ export class CacheService {
   async getChatSession(sessionId: string): Promise<any> {
     return await this.get(`chat:session:${sessionId}`);
   }
+
+  // Health data caching with 5-minute default TTL
+  async cacheHealthData(
+    userId: string,
+    dataType: string,
+    data: any,
+    ttl = 300, // 5 minutes for health data
+  ): Promise<void> {
+    await this.set(`health:${userId}:${dataType}`, data, ttl);
+  }
+
+  async getHealthData(userId: string, dataType: string): Promise<any> {
+    return await this.get(`health:${userId}:${dataType}`);
+  }
+
+  // Rate limiting helper
+  async checkRateLimit(
+    key: string,
+    limit: number,
+    windowSeconds: number,
+  ): Promise<{ allowed: boolean; remaining: number }> {
+    const count = await this.increment(`ratelimit:${key}`, windowSeconds);
+    return {
+      allowed: count <= limit,
+      remaining: Math.max(0, limit - count),
+    };
+  }
+
+  // Invalidate all health cache for a user
+  async invalidateHealthCache(userId: string): Promise<void> {
+    const dataTypes = ['activity', 'heart-rate', 'sleep'];
+    for (const type of dataTypes) {
+      await this.delete(`health:${userId}:${type}`);
+    }
+  }
 }

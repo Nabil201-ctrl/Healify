@@ -30,6 +30,9 @@ export class RabbitMQService implements OnModuleInit, OnModuleDestroy {
       this.connection = await amqplib.connect(this.RABBITMQ_URL);
       this.channel = await this.connection.createChannel();
 
+      // Limit concurrent message processing for better throughput
+      await this.channel.prefetch(10);
+
       // Assert queues
       await this.channel.assertQueue(this.CHAT_QUEUE, { durable: true });
       await this.channel.assertQueue(this.RESPONSE_QUEUE, { durable: true });

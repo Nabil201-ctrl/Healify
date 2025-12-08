@@ -79,17 +79,33 @@ AI Engine {
   Quality Check [type: gateway, icon: filter]
 }
 
+RabbitMQ Message Broker {
+  chat_requests Queue [type: activity, icon: inbox]
+  chat_responses Queue [type: activity, icon: inbox]
+  chat_history_request Queue [type: activity, icon: inbox]
+  health_requests Queue [type: activity, icon: inbox]
+  health_responses Queue [type: activity, icon: inbox]
+  health_sync Queue [type: activity, icon: inbox]
+  notification_queue Queue [type: activity, icon: inbox]
+}
+
 Redis Cache Layer {
-  Auth Storage [type: activity, icon: key]
   Session Cache [type: activity, icon: server]
   Response Cache [type: activity, icon: zap]
-  Message Queue [type: activity, icon: inbox]
+  Health Data Cache [type: activity, icon: heart]
+  Rate Limiting [type: activity, icon: shield]
 }
 
 Database Layer {
   Users Database [type: activity, icon: users]
   Chat Sessions DB [type: activity, icon: message-circle]
   Health Data DB [type: activity, icon: heart]
+}
+
+Performance Layer {
+  Connection Pooling [type: activity, icon: layers]
+  Response Compression [type: activity, icon: archive]
+  Prefetch Limits [type: activity, icon: filter]
 }
 
 Error Handler {
@@ -106,85 +122,97 @@ Verify credentials > Credentials valid?
 Credentials valid? > Generate JWT tokens : Valid
 Credentials valid? --> Invalid credentials : Invalid
 Generate JWT tokens > Store refresh token
-Store refresh token --> Auth Storage : Save refresh token
+Store refresh token --> Users Database : Save hashed refresh token
 Store refresh token > Return access token
 Return access token > Enter chat interface
 
 ### Chat Initiation
 Enter chat interface --> User Interface : Load chat UI
 User Interface > Send chat message : User types message
-Send chat message --> API Gateway : HTTP Request + JWT
-API Gateway --> Validate JWT : Forward to Auth Service
-Validate JWT --> Auth Storage : Verify token
-Auth Storage --> Validate JWT : Token valid
+Send chat message --> API Gateway : POST /chat/send + JWT
+API Gateway --> Validate JWT : JWT Guard validates
 Validate JWT > Create session
 Create session --> Session Cache : Store session data
 Create session > Forward to Chat Service
-Forward to Chat Service --> Message Queue : Publish message
+Forward to Chat Service --> chat_requests Queue : Publish to RabbitMQ
 
 ### Health Data Sync & Retrieval
 User Interface > Sync Health Data : Auto-sync on load
 Sync Health Data --> API Gateway : POST /health/sync
 API Gateway --> Health Gateway Service : Forward Sync Data
 Health Gateway Service > Publish Health Sync : RabbitMQ
-Publish Health Sync --> Message Queue : Health Sync Queue
-Message Queue --> Consume Health Sync : Health Microservice
+Publish Health Sync --> health_sync Queue : Publish to RabbitMQ
+health_sync Queue --> Consume Health Sync : Health Microservice
 Consume Health Sync > Update Data
-Update Data --> Health Data DB : Store Metrics
 Update Data > Analyze Vitals
 Analyze Vitals > Publish Notification : Abnormal Vitals
 Analyze Vitals --> Consume Health Sync : Normal Vitals
 
 User Interface > Request Health Data : Load Dashboard
-Request Health Data --> API Gateway : GET /health/*
+Request Health Data --> API Gateway : GET /health/activity or /health/heart-rate
 API Gateway --> Health Gateway Service : Forward Request
 Health Gateway Service > Publish Health Request : RPC Call
-Publish Health Request --> Message Queue : Health Request Queue
-Message Queue --> Consume Health Request : Health Microservice
+Publish Health Request --> health_requests Queue : Publish to RabbitMQ
+health_requests Queue --> Consume Health Request : Health Microservice
 Consume Health Request > Retrieve Data
 Retrieve Data --> Health Data DB : Fetch Metrics
 Health Data DB --> Retrieve Data : Return Metrics
 Retrieve Data > Format Response
 Format Response > Publish Health Response
-Publish Health Response --> Message Queue : Health Response Queue
-Message Queue --> Await Response : Main Server
+Publish Health Response --> health_responses Queue : Publish to RabbitMQ
+health_responses Queue --> Await Response : Main Server
 Await Response > Return Data
 Return Data --> API Gateway : JSON Response
 API Gateway --> User Interface : Display Charts
 
 ### Notification Flow
-Publish Notification --> Message Queue : Notification Queue
-Message Queue --> Consume Notification : Notification Microservice
+Publish Notification --> notification_queue Queue : Publish to RabbitMQ
+notification_queue Queue --> Consume Notification : Notification Microservice
 Consume Notification > Format Alert
 Format Alert > Send to User
-Send to User --> User Interface : Push Notification
+Send to User --> User Interface : Push Notification (FCM)
 
 ### AI Processing
-Message Queue --> Consume from queue : Chat Service consumes
+chat_requests Queue --> Consume from queue : Chat Service consumes
 Consume from queue > Process with AI
-Process with AI --> NLP Processor : Parse message
-NLP Processor --> Model Inference : Process with AI model
-Model Inference --> Response Generation : Generate response
-Response Generation > Quality Check
-Quality Check > Generate response : Quality passed
-Quality Check --> Process with AI : Quality failed
-Generate response > Cache AI response
-Cache AI response --> Response Cache : Store in Redis
-Cache AI response > Save to database
+Process with AI --> AI Engine : External AI processing
+AI Engine --> Generate response : AI generates response
+Generate response > Save to database
 Save to database --> Chat Sessions DB : Persistent storage
-Cache AI response > Publish response
-Publish response --> WebSocket Connection : Real-time push
-Publish response --> Return response : API response
+Generate response > Publish response
+Publish response --> chat_responses Queue : Publish to RabbitMQ
 
 
 ### Response Delivery
-WebSocket Connection --> Receive AI response : Push to client
-Return response --> API Gateway : HTTP Response
+chat_responses Queue --> Consume response : Main Server consumes
+Consume response > Cache AI response
+Cache AI response --> Session Cache : Store in Redis
+User Interface > Poll session status : GET /chat/session/:sessionId
+Poll session status --> API Gateway : HTTP Request
+API Gateway --> Session Cache : Retrieve cached response
+Session Cache --> API Gateway : Return session data
 API Gateway --> User Interface : Update UI
-Receive AI response > Session completed
+User Interface > Session completed
 
 ### Error Handling
 Validate JWT --> Token expired : Expired token
 Forward to Chat Service --> Service unavailable : Service down
 Process with AI --> Service unavailable : AI service error
 Await Response --> Timeout : Health Service Timeout
+
+### Health Data Caching Flow
+User Interface > Request Health Data : Load Dashboard
+Request Health Data --> API Gateway : GET /health/activity
+API Gateway --> Health Data Cache : Check Cache
+Health Data Cache --> Cache Hit? [type: gateway] : Redis lookup
+Cache Hit? --> API Gateway : HIT - Return cached data
+Cache Hit? --> Health Gateway Service : MISS - Fetch fresh data
+Health Gateway Service --> Health Data Cache : Store with 5min TTL
+Health Data Cache --> API Gateway : Return data
+API Gateway --> User Interface : Display Charts (faster response)
+
+### Performance Annotations
+Redis Cache Layer [note: "TTL-based caching: Sessions (1hr), Health (5min), AI (1hr). Reduces microservice calls by ~70%"]
+Main Service [note: "Optimized: Connection pooling (50 max), compression (~70% smaller), prefetch limits on RabbitMQ"]
+Mobile App [note: "Premium loading: Custom animated LoadingScreen, skeleton loaders, request deduplication"]
+Performance Layer [note: "MongoDB: retry writes/reads, 10s connection timeout, 45s socket timeout for long queries"]

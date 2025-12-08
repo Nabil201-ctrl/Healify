@@ -23,9 +23,13 @@ import { RedisModule } from './redis/redis.module';
       useFactory: (configService: ConfigService) => ({
         uri: configService.get<string>('MONGODB_URI') ||
           'mongodb://localhost:27017/healify',
-        serverSelectionTimeoutMS: 60000, // 60s
-        connectTimeoutMS: 60000, // 60s
-        socketTimeoutMS: 60000, // 60s
+        serverSelectionTimeoutMS: 10000, // 10s - faster failure detection
+        connectTimeoutMS: 10000, // 10s
+        socketTimeoutMS: 45000, // 45s for long queries
+        maxPoolSize: 50, // Connection pooling for scalability
+        minPoolSize: 10, // Keep connections warm
+        retryWrites: true, // Auto-retry failed writes
+        retryReads: true, // Auto-retry failed reads
       }),
     }),
     AuthModule,

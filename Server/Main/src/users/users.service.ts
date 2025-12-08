@@ -7,7 +7,7 @@ import { User, UserDocument } from './entities/user.entity';
 
 @Injectable()
 export class UsersService {
-  constructor(@InjectModel(User.name) private userModel: Model<UserDocument>) {}
+  constructor(@InjectModel(User.name) private userModel: Model<UserDocument>) { }
 
   async create(createUserDto: CreateUserDto) {
     const newUser = new this.userModel(createUserDto);
@@ -35,5 +35,9 @@ export class UsersService {
       { refreshToken },
       { new: true },
     );
+  }
+
+  async update(userId: string, updateUserDto: any): Promise<UserDocument | null> {
+    return this.userModel.findByIdAndUpdate(userId, updateUserDto, { new: true }).exec();
   }
 }

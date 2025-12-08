@@ -1,6 +1,8 @@
 import {
   Controller,
   Get,
+  Patch,
+  Body,
   NotFoundException,
   Req,
   UseGuards,
@@ -12,13 +14,14 @@ import {
   ApiBearerAuth,
 } from '@nestjs/swagger';
 import { UsersService } from './users.service';
+import { UpdateUserDto } from './dto/update-user.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import type { Request } from 'express';
 
 @ApiTags('users')
 @Controller('users')
 export class UsersController {
-  constructor(private readonly usersService: UsersService) {}
+  constructor(private readonly usersService: UsersService) { }
 
   @UseGuards(JwtAuthGuard)
   @Get('me')
@@ -57,6 +60,33 @@ export class UsersController {
     }
     // Convert to plain object and map _id to id
     const userObj = currentUser.toObject ? currentUser.toObject() : currentUser;
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { password, refreshToken, _id, __v, ...result } = userObj as any;
+    return {
+      ...result,
+      id: _id.toString(),
+    };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Patch('me')
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({
+    summary: 'Update current user profile',
+    description: 'Update the profile information of the currently authenticated user'
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'User profile updated successfully',
+  })
+  async updateMe(@Req() req: Request, @Body() updateUserDto: UpdateUserDto) {
+    const user = req.user as { userId: string };
+    const updatedUser = await this.usersService.update(user.userId, updateUserDto);
+    if (!updatedUser) {
+      throw new NotFoundException('User not found');
+    }
+
+    const userObj = updatedUser.toObject ? updatedUser.toObject() : updatedUser;
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { password, refreshToken, _id, __v, ...result } = userObj as any;
     return {

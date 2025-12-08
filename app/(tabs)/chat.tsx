@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, TextInput, TouchableOpacity, FlatList, Image, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuthContext } from '../../context/AuthContext';
+import { toggleChatBookmark } from '../../services/ChatService';
 import tw from 'twrnc';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -10,9 +11,13 @@ const API_URL = 'http://localhost:3000'; // Replace with your machine IP if test
 
 type Message = {
 	id: string;
-	author: 'me' | 'other';
+	author: 'me' | 'other' | 'doctor';
 	text: string;
 	timestamp: number;
+	metadata?: {
+		doctorId?: string;
+		doctorName?: string;
+	};
 };
 
 const Avatar = ({ uri }: { uri?: string }) => (
@@ -45,6 +50,8 @@ export default function ChatScreen() {
 	const [input, setInput] = useState('');
 	const [loading, setLoading] = useState(false);
 	const [isTyping, setIsTyping] = useState(false);
+	const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
+	const [isBookmarked, setIsBookmarked] = useState(false);
 	const flatListRef = useRef<FlatList>(null);
 
 	// Load History on Mount
@@ -165,6 +172,7 @@ export default function ChatScreen() {
 
 			const data = await response.json();
 			if (data.success) {
+				setCurrentSessionId(data.sessionId);
 				pollForResponse(data.sessionId);
 			} else {
 				console.error("Failed to send message:", data.message);
@@ -174,14 +182,52 @@ export default function ChatScreen() {
 		}
 	};
 
+	const handleBookmarkToggle = async () => {
+		if (!currentSessionId) {
+			console.warn('No active session to bookmark');
+			return;
+		}
+
+		try {
+			const newBookmarkState = !isBookmarked;
+			await toggleChatBookmark(currentSessionId, newBookmarkState);
+			setIsBookmarked(newBookmarkState);
+			console.log(`Chat ${newBookmarkState ? 'bookmarked' : 'unbookmarked'}`);
+		} catch (error) {
+			console.error('Failed to toggle bookmark:', error);
+		}
+	};
+
 	const MessageBubble = ({ item }: { item: Message }) => {
 		const isMe = item.author === 'me';
+		const isDoctor = item.author === 'doctor';
+
 		return (
 			<View style={{ flexDirection: isMe ? 'row-reverse' : 'row', alignItems: 'flex-end', marginVertical: 8 }}>
-				{!isMe && <Avatar />}
+				{!isMe && (
+					<View style={{
+						width: 36,
+						height: 36,
+						borderRadius: 18,
+						overflow: 'hidden',
+						backgroundColor: isDoctor ? '#10b981' : '#06B6D4',
+						borderWidth: 2,
+						borderColor: isDoctor ? '#059669' : '#0891b2',
+						justifyContent: 'center',
+						alignItems: 'center'
+					}}>
+						<Text style={{ color: 'white', fontWeight: 'bold', fontSize: 14 }}>
+							{isDoctor ? '👨‍⚕️' : 'AI'}
+						</Text>
+					</View>
+				)}
 				<View
 					style={{
-						backgroundColor: isMe ? '#06B6D4' : (isDark ? '#374151' : '#F3F4F6'),
+						backgroundColor: isMe
+							? '#06B6D4'
+							: isDoctor
+								? '#10b981'
+								: (isDark ? '#374151' : '#F3F4F6'),
 						marginHorizontal: 8,
 						paddingHorizontal: 16,
 						paddingVertical: 12,
@@ -196,7 +242,24 @@ export default function ChatScreen() {
 						elevation: 1
 					}}
 				>
-					<Text style={{ color: isMe ? '#fff' : (isDark ? '#fff' : '#1f2937'), fontSize: 15, lineHeight: 22 }}>{item.text}</Text>
+					{isDoctor && (
+						<Text style={{
+							fontSize: 10,
+							color: '#fff',
+							fontWeight: '600',
+							marginBottom: 4,
+							opacity: 0.9
+						}}>
+							{item.metadata?.doctorName || '👨‍⚕️ Doctor'}
+						</Text>
+					)}
+					<Text style={{
+						color: isMe || isDoctor ? '#fff' : (isDark ? '#fff' : '#1f2937'),
+						fontSize: 15,
+						lineHeight: 22
+					}}>
+						{item.text}
+					</Text>
 				</View>
 			</View>
 		);
@@ -216,6 +279,19 @@ export default function ChatScreen() {
 						<Text style={{ fontSize: 16, fontWeight: '700', color: isDark ? '#fff' : '#111827' }}>Healify Assistant</Text>
 						<Text style={{ fontSize: 12, color: isDark ? '#9ca3af' : '#6b7280' }}>Always here for you</Text>
 					</View>
+					{/* Bookmark Button */}
+					<TouchableOpacity
+						onPress={handleBookmarkToggle}
+						disabled={!currentSessionId}
+						style={{
+							padding: 8,
+							borderRadius: 20,
+							backgroundColor: isDark ? '#374151' : '#f3f4f6',
+							opacity: currentSessionId ? 1 : 0.5,
+						}}
+					>
+						<Text style={{ fontSize: 20 }}>{isBookmarked ? '⭐' : '☆'}</Text>
+					</TouchableOpacity>
 				</View>
 			</View>
 

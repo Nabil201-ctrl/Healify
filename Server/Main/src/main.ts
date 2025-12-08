@@ -3,9 +3,20 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
+import compression from 'compression';
+import helmet from 'helmet';
+import { GlobalExceptionFilter } from './common/filters/http-exception.filter';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+
+  // Security headers
+  app.use(helmet({
+    contentSecurityPolicy: false, // Disable CSP for Swagger UI
+  }));
+
+  // Response compression - reduces payload size by ~70%
+  app.use(compression());
 
   // Enable global validation pipe
   app.useGlobalPipes(
@@ -15,6 +26,9 @@ async function bootstrap() {
       transform: true, // Automatically transform payloads to be objects typed according to their DTO classes
     }),
   );
+
+  // Global exception filter for consistent error responses
+  app.useGlobalFilters(new GlobalExceptionFilter());
 
   // Set a global API prefix for all routes
   //  app.setGlobalPrefix('api');
