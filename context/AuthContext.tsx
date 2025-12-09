@@ -33,7 +33,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         let token = await AsyncStorage.getItem('accessToken');
         let refreshTokenStored = await AsyncStorage.getItem('refreshToken');
         let triedRefresh = false;
-        
+
         // Only try to refresh if we have a refresh token
         if (!token && refreshTokenStored) {
           try {
@@ -49,7 +49,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             return;
           }
         }
-        
+
         // Only try to fetch user if we have a token
         if (token) {
           try {
@@ -97,6 +97,18 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     console.log('[AuthContext] Tokens saved, setting user state');
     setUser(user);
     console.log('[AuthContext] User state set, isSignedIn should now be true');
+
+    // Register for push notifications after successful login
+    try {
+      const { registerAndUploadPushToken } = await import('../services/NotificationService');
+      const success = await registerAndUploadPushToken();
+      if (success) {
+        console.log('[AuthContext] Push notification token registered');
+      }
+    } catch (error) {
+      console.error('[AuthContext] Error registering push notifications:', error);
+      // Don't fail login if push notification registration fails
+    }
   }, []);
 
   const signUp = useCallback(async (userData: SignUpData) => {
@@ -107,6 +119,18 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     console.log('[AuthContext] Tokens saved, setting user state');
     setUser(user);
     console.log('[AuthContext] User state set, isSignedIn should now be true');
+
+    // Register for push notifications after successful signup
+    try {
+      const { registerAndUploadPushToken } = await import('../services/NotificationService');
+      const success = await registerAndUploadPushToken();
+      if (success) {
+        console.log('[AuthContext] Push notification token registered');
+      }
+    } catch (error) {
+      console.error('[AuthContext] Error registering push notifications:', error);
+      // Don't fail signup if push notification registration fails
+    }
   }, []);
 
   const signOut = useCallback(async () => {

@@ -40,4 +40,22 @@ export class UsersService {
   async update(userId: string, updateUserDto: any): Promise<UserDocument | null> {
     return this.userModel.findByIdAndUpdate(userId, updateUserDto, { new: true }).exec();
   }
+
+  async addPushToken(userId: string, token: string) {
+    await this.userModel.findByIdAndUpdate(
+      userId,
+      { $addToSet: { pushTokens: token } },
+      { new: true, upsert: false },
+    ).exec();
+    return this.findOneById(userId);
+  }
+
+  async setLocation(userId: string, location: string) {
+    await this.userModel.findByIdAndUpdate(
+      userId,
+      { location },
+      { new: true, upsert: false },
+    ).exec();
+    return this.findOneById(userId);
+  }
 }

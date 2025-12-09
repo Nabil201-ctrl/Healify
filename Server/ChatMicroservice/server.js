@@ -128,6 +128,7 @@ import {
     assessHealthDataQuality,
     generateHealthDataWarning
 } from './services/ai-safety.service.js';
+import { generateMedicalResponse } from './services/ai-provider.service.js';
 
 // AI Processing function
 async function processAIRequest(message, userId, sessionId) {
@@ -190,68 +191,33 @@ async function processAIRequest(message, userId, sessionId) {
         };
     }
 
-    // 5. Generate Response (Mock Logic with Confidence)
-    const lowerMsg = message.toLowerCase();
-    let responseText = "I'm here to help you stay healthy. How are you feeling today?";
-    let confidence = 0.9;
-    let reviewReason = null;
+    // 5. Generate Response via medical-grade AI provider (Infermedica -> OpenAI -> fallback)
+    const aiOutput = await generateMedicalResponse(message, userContext?.data);
 
-    if (lowerMsg.includes('headache') || lowerMsg.includes('pain')) {
-        responseText = "I'm sorry to hear that. Have you been drinking enough water today? Dehydration is a common cause of headaches.";
-        confidence = 0.85;
-    } else if (lowerMsg.includes('tired') || lowerMsg.includes('fatigue')) {
-        responseText = "Rest is important. My analysis shows your sleep quality was " + (userContext?.data?.insights?.includes('sleep') ? "low" : "okay") + " recently. Try to get to bed early tonight.";
-        confidence = 0.8;
-    } else if (lowerMsg.includes('step') || lowerMsg.includes('walk')) {
-        const steps = userContext?.data?.current?.steps || 0;
-        responseText = `You've taken ${steps} steps today. ` + (steps < 5000 ? "Try to go for a short walk to reach your goal!" : "Great job staying active!");
-        confidence = 0.95;
-    } else if (lowerMsg.includes('heart') || lowerMsg.includes('rate')) {
-        const hr = userContext?.data?.current?.heartRate || "unknown";
-        responseText = `Your latest heart rate reading is ${hr} bpm. ` + (hr > 100 ? "It's a bit high, maybe take a moment to relax." : "It looks normal.");
-        confidence = 0.9;
-    } else if (lowerMsg.includes('hello') || lowerMsg.includes('hi')) {
-        responseText = "Hello! I'm your Healify Assistant. I can help you track your health and answer questions.";
-        confidence = 0.99;
-    } else if (lowerMsg.includes('weird') || lowerMsg.includes('strange') || lowerMsg.includes('unknown')) {
-        // Low confidence scenario
-        responseText = "I'm not entirely sure about those symptoms. It might be best to have a doctor review this.";
-        confidence = 0.5;
-        reviewReason = 'Low AI confidence on symptoms';
-    }
+    const needsDoctorReview = aiOutput.needsDoctorReview || aiOutput.confidence < 0.7;
 
-    // Append Context Note if relevant
-    if (userContext && userContext.data && userContext.data.insights && userContext.data.insights.length > 0) {
-        responseText += `\n\n(Note: ${userContext.data.insights[0]})`;
-    }
-
-    // 6. Flag for Doctor Review if Confidence is Low
-    if (confidence < 0.7) {
+    if (needsDoctorReview) {
         await ChatSession.findOneAndUpdate(
             { sessionId },
             {
                 needsDoctorReview: true,
-                reviewReason: reviewReason || 'Low AI confidence score',
-                aiConfidence: confidence,
+                reviewReason: 'Low AI confidence or safety flag',
+                aiConfidence: aiOutput.confidence,
                 healthDataQuality,
                 status: 'needs_review'
             }
         );
-
-        responseText += "\n\n(Note: I've flagged this conversation for a doctor to review to ensure you get the best advice.)";
     }
 
-    // Simulate AI processing delay
-    await new Promise(resolve => setTimeout(resolve, 1000));
-
     return {
-        text: responseText,
-        confidence,
+        text: aiOutput.text,
+        confidence: aiOutput.confidence,
         metadata: {
             clarityScore,
             healthDataQuality,
-            processingTime: 1000,
-            model: "healify-mock-v1"
+            provider: aiOutput.source,
+            ...aiOutput.metadata,
+            needsDoctorReview,
         }
     };
 }

@@ -12,7 +12,7 @@ This microservice handles AI chat processing for the Healify platform using Rabb
 ## Features
 
 - ✅ Consumes chat requests from RabbitMQ queue
-- ✅ Processes messages with AI (integration point for AI models)
+- ✅ Processes messages with AI (Infermedica > OpenAI > safe fallback)
 - ✅ Caches responses in Redis for performance
 - ✅ Publishes AI responses back to Main Server via RabbitMQ
 - ✅ Health check endpoint
@@ -41,8 +41,11 @@ RABBITMQ_URL=amqp://localhost:5672
 REDIS_URL=redis://localhost:6379
 
 # Add your AI API keys here
-# OPENAI_API_KEY=your-key
-# ANTHROPIC_API_KEY=your-key
+# INFERMEDICA_APP_ID=your-app-id
+# INFERMEDICA_APP_KEY=your-app-key
+# INFERMEDICA_MODEL=infermedica-en
+# OPENAI_API_KEY=your-openai-key
+# OPENAI_MODEL=gpt-4o-mini
 ```
 
 ### Running the Service
@@ -113,26 +116,13 @@ Response:
 
 ## AI Integration
 
-To integrate your AI model, update the `processAIRequest` function in `server.js`:
+AI orchestration now lives in `services/ai-provider.service.js` and follows this order:
 
-```javascript
-async function processAIRequest(message, userId, sessionId) {
-  // Replace with your AI API call
-  // Example: OpenAI, Anthropic, or custom model
-  
-  const response = await yourAIService.chat({
-    prompt: message,
-    userId: userId,
-  });
-  
-  return {
-    response: response.text,
-    confidence: response.confidence,
-    processingTime: response.time,
-    model: "your-model-name"
-  };
-}
-```
+1. **Infermedica** (if `INFERMEDICA_APP_ID`/`INFERMEDICA_APP_KEY` are set)
+2. **OpenAI Chat Completions** (if `OPENAI_API_KEY` is set; defaults to `gpt-4o-mini`)
+3. **Heuristic fallback** with safety-first messaging and doctor-review flagging
+
+To adjust prompts or models, edit `services/ai-provider.service.js`. The `processAIRequest` function already consumes this provider and handles safety and review flagging.
 
 ## Redis Caching
 

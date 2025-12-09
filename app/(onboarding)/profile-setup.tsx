@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ScrollView, Alert, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuthContext } from '../../context/AuthContext';
@@ -9,6 +9,7 @@ import api from '../../api/api';
 type BodyType = 'Slim' | 'Lean' | 'Fat' | 'Average';
 type ActivityLevel = 'Sedentary' | 'Lightly Active' | 'Moderately Active' | 'Very Active';
 type JobType = 'Active' | 'Office' | 'Mixed';
+type LocationOption = { id: string; city: string; state?: string; country: string };
 
 export default function ProfileSetupScreen() {
     const router = useRouter();
@@ -22,6 +23,10 @@ export default function ProfileSetupScreen() {
     const [weight, setWeight] = useState('');
     const [bodyType, setBodyType] = useState<BodyType | ''>('');
 
+    const [location, setLocation] = useState('');
+    const [locations, setLocations] = useState<LocationOption[]>([]);
+    const [loadingLocations, setLoadingLocations] = useState(false);
+
     const [jobType, setJobType] = useState<JobType | ''>('');
     const [activityLevel, setActivityLevel] = useState<ActivityLevel | ''>('');
     const [averageSteps, setAverageSteps] = useState('');
@@ -33,9 +38,30 @@ export default function ProfileSetupScreen() {
 
     const totalSteps = 3;
 
+    useEffect(() => {
+        const fetchLocations = async () => {
+            setLoadingLocations(true);
+            try {
+                const { data } = await api.get('/users/locations');
+                setLocations(data.locations || []);
+            } catch (err) {
+                console.warn('Failed to load locations, using fallback list');
+                setLocations([
+                    { id: 'nyc', city: 'New York', state: 'NY', country: 'USA' },
+                    { id: 'sf', city: 'San Francisco', state: 'CA', country: 'USA' },
+                    { id: 'ldn', city: 'London', state: 'London', country: 'UK' },
+                ]);
+            } finally {
+                setLoadingLocations(false);
+            }
+        };
+
+        fetchLocations();
+    }, []);
+
     const handleNext = () => {
         if (step === 1) {
-            if (!age || !height || !weight || !bodyType) {
+            if (!age || !height || !weight || !bodyType || !location) {
                 Alert.alert('Missing Fields', 'Please fill in all fields to proceed.');
                 return;
             }
@@ -67,6 +93,7 @@ export default function ProfileSetupScreen() {
                 healthIssues: healthIssues.split(',').map(s => s.trim()).filter(Boolean),
                 allergies: allergies.split(',').map(s => s.trim()).filter(Boolean),
                 medications: medications.split(',').map(s => s.trim()).filter(Boolean),
+                location,
                 isProfileComplete: true
             };
 
@@ -112,6 +139,28 @@ export default function ProfileSetupScreen() {
 
             <Text style={tw`text-gray-600 mb-2`}>Weight (kg)</Text>
             <TextInput style={tw`border border-gray-300 rounded-xl p-3 mb-4`} keyboardType="numeric" value={weight} onChangeText={setWeight} placeholder="kg" />
+
+            <Text style={tw`text-gray-600 mb-2`}>Location</Text>
+            {loadingLocations ? (
+                <Text style={tw`text-gray-500 mb-3`}>Loading locations...</Text>
+            ) : (
+                <View style={tw`flex-row flex-wrap gap-2 mb-4`}>
+                    {locations.map((loc) => {
+                        const label = `${loc.city}${loc.state ? ', ' + loc.state : ''}`;
+                        const fullLabel = `${label}, ${loc.country}`;
+                        const isSelected = location === fullLabel;
+                        return (
+                            <TouchableOpacity
+                                key={loc.id}
+                                onPress={() => setLocation(fullLabel)}
+                                style={tw`px-4 py-2 rounded-full border ${isSelected ? 'bg-green-600 border-green-600' : 'border-gray-300 bg-white'}`}
+                            >
+                                <Text style={tw`${isSelected ? 'text-white' : 'text-gray-600'}`}>{fullLabel}</Text>
+                            </TouchableOpacity>
+                        );
+                    })}
+                </View>
+            )}
 
             <Text style={tw`text-gray-600 mb-2`}>Body Type</Text>
             <View style={tw`flex-row flex-wrap gap-2 mb-4`}>

@@ -14,6 +14,7 @@ export class RabbitMQService implements OnModuleInit, OnModuleDestroy {
   private readonly HEALTH_QUEUE = 'health_requests';
   private readonly HEALTH_RESPONSE_QUEUE = 'health_responses';
   private readonly HEALTH_SYNC_QUEUE = 'health_sync';
+  private readonly NOTIFICATION_QUEUE = 'notification_queue';
 
   private pendingRequests = new Map<string, { resolve: (value: any) => void; reject: (reason?: any) => void; timeout: NodeJS.Timeout }>();
 
@@ -39,6 +40,7 @@ export class RabbitMQService implements OnModuleInit, OnModuleDestroy {
       await this.channel.assertQueue(this.HEALTH_QUEUE, { durable: true });
       await this.channel.assertQueue(this.HEALTH_RESPONSE_QUEUE, { durable: true });
       await this.channel.assertQueue(this.HEALTH_SYNC_QUEUE, { durable: true });
+      await this.channel.assertQueue(this.NOTIFICATION_QUEUE, { durable: true });
 
       console.log('RabbitMQ connected and queues asserted');
 
@@ -150,6 +152,27 @@ export class RabbitMQService implements OnModuleInit, OnModuleDestroy {
       console.log('Health sync data sent to queue:', data);
     } catch (error) {
       console.error('Failed to send health sync data:', error);
+      throw error;
+    }
+  }
+
+  async sendNotification(payload: { tokens?: string[]; token?: string; title?: string; message: string; type?: string }) {
+    if (!this.channel) {
+      throw new Error('RabbitMQ channel not initialized');
+    }
+
+    try {
+      this.channel.sendToQueue(
+        this.NOTIFICATION_QUEUE,
+        Buffer.from(JSON.stringify({
+          ...payload,
+          timestamp: new Date().toISOString(),
+        })),
+        { persistent: true },
+      );
+      console.log('Notification payload sent to queue:', payload);
+    } catch (error) {
+      console.error('Failed to send notification payload:', error);
       throw error;
     }
   }

@@ -64,4 +64,8 @@ export class UpdateUserDto {
     @IsOptional()
     @IsEnum(['PENDING', 'PROFILE_SETUP', 'COMPLETED'])
     onboardingStatus?: string;
+
+    @IsOptional()
+    @IsString()
+    location?: string;
 }

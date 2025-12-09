@@ -1,5 +1,6 @@
 import amqlib from "amqplib";
 import dotenv from "dotenv";
+import { sendPushNotification } from "./Firebase.js";
 dotenv.config();
 
 const RABBITMQ_URL = process.env.RABBITMQ_URL || "amqp://localhost:5672";
@@ -55,17 +56,31 @@ async function consumeNotifications() {
                 const notification = JSON.parse(msg.content.toString());
                 console.log("Received notification:", notification);
 
-                const { userId, type, message, timestamp } = notification;
+                const { tokens, token, type, message, timestamp, title } = notification;
+                const targetTokens = Array.isArray(tokens)
+                    ? tokens.filter(Boolean)
+                    : token
+                        ? [token]
+                        : [];
 
-                // TODO: Fetch user's FCM token from database (mocked for now)
-                const mockFcmToken = "mock_fcm_token_for_" + userId;
+                if (!targetTokens.length) {
+                    console.warn("No target tokens provided for notification payload; skipping", notification);
+                    currentChannel.ack(msg);
+                    return;
+                }
 
-                await sendPushNotification(
-                    mockFcmToken,
-                    "Healify Alert",
-                    message,
-                    { type, timestamp }
-                );
+                for (const pushToken of targetTokens) {
+                    try {
+                        await sendPushNotification(
+                            pushToken,
+                            title || "Healify Alert",
+                            message,
+                            { type, timestamp }
+                        );
+                    } catch (err) {
+                        console.error("Failed to send push notification:", err);
+                    }
+                }
 
                 currentChannel.ack(msg);
             }

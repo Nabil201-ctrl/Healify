@@ -9,7 +9,7 @@ import { OnboardingService } from '../services/OnboardingService';
 import { LoadingScreen } from '../components/LoadingScreen';
 import tw from 'twrnc';
 
-import { registerForPushNotificationsAsync } from '../services/NotificationService';
+import { registerForPushNotificationsAsync, uploadPushToken } from '../services/NotificationService';
 
 // Keep the splash screen visible while we fetch resources
 SplashScreen.preventAutoHideAsync();
@@ -21,6 +21,8 @@ function RootLayoutNav() {
   const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState('Preparing your experience...');
   const [appIsReady, setAppIsReady] = useState(false);
+  const [pushToken, setPushToken] = useState<string | null>(null);
+  const [hasUploadedPush, setHasUploadedPush] = useState(false);
 
   const segments = useSegments();
   const router = useRouter();
@@ -34,11 +36,11 @@ function RootLayoutNav() {
         setHasCompletedOnboarding(completed);
         setOnboardingLoading(false);
 
-        // Register for Push Notifications
+        // Register for Push Notifications early
         registerForPushNotificationsAsync().then(token => {
           if (token) {
             console.log("Push Token retrieved:", token);
-            // TODO: Send this token to backend to associate with user
+            setPushToken(token);
           }
         });
       } catch (e) {
@@ -51,6 +53,20 @@ function RootLayoutNav() {
 
     prepare();
   }, []);
+
+  useEffect(() => {
+    const uploadToken = async () => {
+      if (!isSignedIn || !pushToken || hasUploadedPush) return;
+      try {
+        await uploadPushToken(pushToken);
+        setHasUploadedPush(true);
+      } catch (err) {
+        console.warn('[RootLayout] Failed to upload push token:', err);
+      }
+    };
+
+    uploadToken();
+  }, [isSignedIn, pushToken, hasUploadedPush]);
 
   // Hide the native splash screen once our custom splash is showing
   const onLayoutRootView = useCallback(async () => {

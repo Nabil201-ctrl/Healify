@@ -65,6 +65,12 @@ export class User {
     default: 'PENDING'
   })
   onboardingStatus: string;
+
+  @Prop({ type: [String], default: [] })
+  pushTokens?: string[];
+
+  @Prop()
+  location?: string; // User's location (city, state, country)
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);

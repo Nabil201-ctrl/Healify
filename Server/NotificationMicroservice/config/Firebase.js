@@ -2,6 +2,7 @@ import admin from "firebase-admin";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from 'url';
+import { Expo } from 'expo-server-sdk';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -11,6 +12,7 @@ const __dirname = path.dirname(__filename);
 const serviceAccountPath = path.join(__dirname, "../serviceAccountKey.json");
 
 let firebaseInitialized = false;
+const expo = new Expo({ accessToken: process.env.EXPO_ACCESS_TOKEN });
 
 try {
     if (fs.existsSync(serviceAccountPath)) {
@@ -30,6 +32,25 @@ try {
 }
 
 export const sendPushNotification = async (token, title, body, data = {}) => {
+    if (Expo.isExpoPushToken(token)) {
+        try {
+            const receipt = await expo.sendPushNotificationsAsync([
+                {
+                    to: token,
+                    sound: 'default',
+                    title,
+                    body,
+                    data,
+                }
+            ]);
+            console.log("Expo push response:", receipt);
+            return receipt;
+        } catch (err) {
+            console.error("Expo push error:", err);
+            throw err;
+        }
+    }
+
     if (!firebaseInitialized) {
         console.log(`[MOCK FCM] Sending to ${token}: ${title} - ${body}`, data);
         return;
