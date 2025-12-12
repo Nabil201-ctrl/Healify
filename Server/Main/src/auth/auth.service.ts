@@ -1,5 +1,10 @@
 // backend/src/auth/auth.service.ts
-import { Injectable, UnauthorizedException, ForbiddenException, ConflictException } from '@nestjs/common';
+import {
+  Injectable,
+  UnauthorizedException,
+  ForbiddenException,
+  ConflictException,
+} from '@nestjs/common';
 import { UsersService } from '../users/users.service';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
@@ -16,7 +21,9 @@ export class AuthService {
   async signUp(createUserDto: CreateUserDto) {
     try {
       // Check if user already exists
-      const existingUser = await this.usersService.findOneByEmail(createUserDto.email);
+      const existingUser = await this.usersService.findOneByEmail(
+        createUserDto.email,
+      );
       if (existingUser) {
         throw new ConflictException('Email already registered');
       }
@@ -28,7 +35,7 @@ export class AuthService {
       });
       const tokens = await this.getTokens(user.id, user.email);
       await this.updateRefreshToken(user.id, tokens.refreshToken);
-      
+
       // Return tokens and user data (excluding sensitive fields)
       const { password, refreshToken, ...userWithoutSensitiveData } = user;
       return {
@@ -51,29 +58,37 @@ export class AuthService {
     try {
       const user = await this.usersService.findOneByEmail(email);
       console.log('[AuthService] Sign in attempt for:', email);
-      
+
       if (!user || !user.password) {
         console.log('[AuthService] User not found or no password');
         throw new UnauthorizedException('Invalid credentials');
       }
-      
+
       console.log('[AuthService] User found, comparing password');
       const isMatch = await bcrypt.compare(pass, user.password);
       if (!isMatch) {
         console.log('[AuthService] Password mismatch');
         throw new UnauthorizedException('Invalid credentials');
       }
-      
+
       console.log('[AuthService] Password matched, generating tokens');
       const userId = user._id?.toString() || user.id;
       const tokens = await this.getTokens(userId, user.email);
       await this.updateRefreshToken(userId, tokens.refreshToken);
-      
+
       // Return tokens and user data (excluding sensitive fields)
       const userObj = user.toObject ? user.toObject() : user;
-      const { password: _, refreshToken: __, _id, __v, ...userWithoutSensitiveData } = userObj as any;
-      
-      console.log('[AuthService] Sign in successful, returning tokens and user');
+      const {
+        password: _,
+        refreshToken: __,
+        _id,
+        __v,
+        ...userWithoutSensitiveData
+      } = userObj as any;
+
+      console.log(
+        '[AuthService] Sign in successful, returning tokens and user',
+      );
       return {
         ...tokens,
         user: {

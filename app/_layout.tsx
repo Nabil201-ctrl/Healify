@@ -1,30 +1,81 @@
 // app/_layout.tsx
-import React, { useEffect, useState } from 'react';
-import { View, ActivityIndicator, Text } from 'react-native';
+import React, { useEffect, useState, useCallback } from 'react';
+import { View } from 'react-native';
 import { Stack, useRouter, useSegments } from 'expo-router';
+import * as SplashScreen from 'expo-splash-screen';
 import { AuthProvider, useAuthContext } from '../context/AuthContext';
 import { ThemeProvider } from '../context/ThemeContext';
 import { OnboardingService } from '../services/OnboardingService';
+import { LoadingScreen } from '../components/LoadingScreen';
 import tw from 'twrnc';
+
+import { registerForPushNotificationsAsync, uploadPushToken } from '../services/NotificationService';
+
+// Keep the splash screen visible while we fetch resources
+SplashScreen.preventAutoHideAsync();
 
 // --- Main Navigation Logic ---
 function RootLayoutNav() {
   const { isLoading: isAuthLoading, isSignedIn } = useAuthContext();
   const [isOnboardingLoading, setOnboardingLoading] = useState(true);
   const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(false);
-  
+  const [loadingMessage, setLoadingMessage] = useState('Preparing your experience...');
+  const [appIsReady, setAppIsReady] = useState(false);
+  const [pushToken, setPushToken] = useState<string | null>(null);
+  const [hasUploadedPush, setHasUploadedPush] = useState(false);
+
   const segments = useSegments();
   const router = useRouter();
 
   useEffect(() => {
-    // Check onboarding status first
-    const checkOnboarding = async () => {
-      const completed = await OnboardingService.hasCompletedOnboarding();
-      setHasCompletedOnboarding(completed);
-      setOnboardingLoading(false);
-    };
-    checkOnboarding();
+    async function prepare() {
+      try {
+        // Check onboarding status
+        setLoadingMessage('Checking your progress...');
+        const completed = await OnboardingService.hasCompletedOnboarding();
+        setHasCompletedOnboarding(completed);
+        setOnboardingLoading(false);
+
+        // Register for Push Notifications early
+        registerForPushNotificationsAsync().then(token => {
+          if (token) {
+            console.log("Push Token retrieved:", token);
+            setPushToken(token);
+          }
+        });
+      } catch (e) {
+        console.warn('[RootLayout] Error during preparation:', e);
+      } finally {
+        // Tell the application to render
+        setAppIsReady(true);
+      }
+    }
+
+    prepare();
   }, []);
+
+  useEffect(() => {
+    const uploadToken = async () => {
+      if (!isSignedIn || !pushToken || hasUploadedPush) return;
+      try {
+        await uploadPushToken(pushToken);
+        setHasUploadedPush(true);
+      } catch (err) {
+        console.warn('[RootLayout] Failed to upload push token:', err);
+      }
+    };
+
+    uploadToken();
+  }, [isSignedIn, pushToken, hasUploadedPush]);
+
+  // Hide the native splash screen once our custom splash is showing
+  const onLayoutRootView = useCallback(async () => {
+    if (appIsReady) {
+      // This tells expo-splash-screen to hide the native splash
+      // Our custom LoadingScreen with LifeLine is now visible
+      await SplashScreen.hideAsync();
+    }
+  }, [appIsReady]);
 
   useEffect(() => {
     const isLoading = isAuthLoading || isOnboardingLoading;
@@ -38,6 +89,9 @@ function RootLayoutNav() {
 
     if (isLoading) {
       console.log('[RootLayout] Still loading, waiting...');
+      if (isAuthLoading) {
+        setLoadingMessage('Verifying your session...');
+      }
       return; // Wait until both auth and onboarding status are loaded
     }
 
@@ -55,14 +109,30 @@ function RootLayoutNav() {
     } else {
       // Onboarding is complete, now check auth status
       if (isSignedIn) {
-        // User is signed in, send them to the tabbed app
-        if (!inTabsGroup) {
-          console.log('[RootLayout] User signed in, redirecting to tabs/home');
-          setTimeout(() => {
-            router.replace('/(tabs)/home');
-          }, 100);
+        // User is signed in
+        const { user } = useAuthContext();
+
+        // Check if profile is complete (assuming user object has this field now)
+        // We need to cast or ensure the type is updated in AuthContext, but for now we access it dynamically or assume it's there.
+        // Ideally, update User type in types.ts.
+        const isProfileComplete = (user as any)?.isProfileComplete;
+
+        if (!isProfileComplete) {
+          if (segments[1] !== 'profile-setup') {
+            console.log('[RootLayout] Profile incomplete, redirecting to setup');
+            router.replace('/(onboarding)/profile-setup');
+          }
         } else {
-          console.log('[RootLayout] User already in tabs group');
+          // User is signed in and profile is complete, send them to the tabbed app
+          if (!inTabsGroup) {
+            console.log('[RootLayout] User signed in, redirecting to tabs/home');
+            setLoadingMessage('Loading your dashboard...');
+            setTimeout(() => {
+              router.replace('/(tabs)/home');
+            }, 100);
+          } else {
+            console.log('[RootLayout] User already in tabs group');
+          }
         }
       } else {
         // User is not signed in, send them to the auth flow
@@ -74,25 +144,27 @@ function RootLayoutNav() {
     }
   }, [isAuthLoading, isOnboardingLoading, hasCompletedOnboarding, isSignedIn, segments, router]);
 
-  // Show a loading screen while we determine the initial route
-  if (isAuthLoading || isOnboardingLoading) {
+  // Show premium loading screen (with LifeLine) as splash and loading screen
+  if (!appIsReady || isAuthLoading || isOnboardingLoading) {
     return (
-      <View style={tw`flex-1 justify-center items-center bg-white`}>
-        <ActivityIndicator size="large" color="#16a34a" />
+      <View style={tw`flex-1`} onLayout={onLayoutRootView}>
+        <LoadingScreen message={loadingMessage} />
       </View>
     );
   }
 
   // Once loaded, render the navigation stack
   return (
-    <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="index" />
-      <Stack.Screen name="(onboarding)" />
-      <Stack.Screen name="(auth)" />
-      <Stack.Screen name="(home)" />
-      <Stack.Screen name="(chat)" />
-      <Stack.Screen name="(tabs)" />
-    </Stack>
+    <View style={tw`flex-1`} onLayout={onLayoutRootView}>
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="index" />
+        <Stack.Screen name="(onboarding)" />
+        <Stack.Screen name="(auth)" />
+        <Stack.Screen name="(home)" />
+        <Stack.Screen name="(chat)" />
+        <Stack.Screen name="(tabs)" />
+      </Stack>
+    </View>
   );
 }
 

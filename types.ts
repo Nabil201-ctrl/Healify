@@ -7,4 +7,9 @@ export interface User {
   lastName?: string;
   // This flag will be stored on our mock user object
   hasCompletedOnboarding: boolean;
+
+  // Optional profile completeness fields from backend
+  isProfileComplete?: boolean;
+  location?: string;
+  pushTokens?: string[];
 }

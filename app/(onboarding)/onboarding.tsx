@@ -47,7 +47,7 @@ const slides = [
     {
         id: '5',
         title: 'Ready to Begin? ❤️',
-        description: 'Let\'s start your journey towards a healthier you!',
+        description: 'We\'ll ask for notification permissions so you never miss important health alerts!',
         icon: 'rocket-outline',
         color: '#EC4899',
     },
@@ -60,6 +60,31 @@ export default function OnboardingScreen() {
     const [currentIndex, setCurrentIndex] = useState(0);
 
     const handleProceed = async () => {
+        try {
+            // Request notification permissions
+            const { registerForPushNotificationsAsync, getNotificationPermissionStatus } = await import('../../services/NotificationService');
+
+            const currentStatus = await getNotificationPermissionStatus();
+
+            if (currentStatus === 'undetermined') {
+                // Request permission
+                const token = await registerForPushNotificationsAsync();
+
+                if (token) {
+                    console.log('[Onboarding] Notification permission granted, token:', token);
+                } else {
+                    console.log('[Onboarding] Notification permission denied or unavailable');
+                }
+            } else if (currentStatus === 'granted') {
+                console.log('[Onboarding] Notification permission already granted');
+            } else {
+                console.log('[Onboarding] Notification permission previously denied');
+            }
+        } catch (error) {
+            console.error('[Onboarding] Error requesting notification permissions:', error);
+            // Continue anyway - notifications are not critical for onboarding
+        }
+
         // Mark onboarding as completed so the user doesn't see it again.
         await OnboardingService.setOnboardingCompleted();
         // Navigate to the authentication flow. The root layout will handle it from there.
