@@ -1,7 +1,6 @@
 import React from 'react';
-import { View, Text } from 'react-native';
+import { View, Text, useWindowDimensions } from 'react-native';
 import { StackedBarChart } from 'react-native-chart-kit';
-import { Dimensions } from 'react-native';
 import tw from 'twrnc';
 
 interface SleepChartProps {
@@ -9,7 +8,8 @@ interface SleepChartProps {
 }
 
 export default function SleepChart({ isDark = false }: SleepChartProps) {
-    const screenWidth = Dimensions.get('window').width - 40;
+    const { width } = useWindowDimensions();
+    const chartWidth = width - 72;
 
     const sleepData = {
         labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
@@ -54,10 +54,10 @@ export default function SleepChart({ isDark = false }: SleepChartProps) {
             
             <StackedBarChart
                 data={sleepData}
-                width={screenWidth}
-                height={220}
+                width={chartWidth}
+                height={200}
                 chartConfig={chartConfig}
-                style={tw`rounded-xl`}
+                style={tw`rounded-xl -ml-4`}
                 hideLegend={false}
             />
             

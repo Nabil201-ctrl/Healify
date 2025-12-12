@@ -17,13 +17,14 @@ export default function SignInScreen() {
         }
         setLoading(true);
         try {
-            // In our mock, we only need the email to "find" the user.
-            // A real implementation would pass the password to the backend.
-            // SPECIFICATION: Server API call to sign in would happen here.
-            await signIn(emailAddress);
+            console.log('[SignIn] Attempting sign in for:', emailAddress);
+            await signIn(emailAddress, password);
+            console.log('[SignIn] Sign in successful');
             // On success, the root layout will handle navigation.
         } catch (err: any) {
-            Alert.alert('Sign In Failed', err.message);
+            console.error('[SignIn] Error:', err);
+            const errorMessage = err?.response?.data?.message || err?.message || 'An error occurred during sign in';
+            Alert.alert('Sign In Failed', errorMessage);
         } finally {
             setLoading(false);
         }
